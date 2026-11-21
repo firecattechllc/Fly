@@ -12,7 +12,7 @@ class Response:
 
 class DataTests(unittest.TestCase):
     def test_unconfigured_fails_closed(self):
-        with patch.dict(os.environ, {}, clear=True), self.assertRaises(market_data.MarketDataError):
+        with patch.dict(os.environ, {}, clear=True), patch.object(market_data, "_keychain_value", side_effect=market_data.MarketDataError("missing")), self.assertRaises(market_data.MarketDataError):
             market_data.get_quotes(["AAPL"])
     def test_read_only_and_feed(self):
         with patch.dict(os.environ, {"APCA_API_KEY_ID":"example","APCA_API_SECRET_KEY":"example"}):
@@ -20,6 +20,19 @@ class DataTests(unittest.TestCase):
             self.assertTrue(result["read_only"])
             self.assertFalse(result["broker_connected"])
             self.assertEqual(result["quotes"][0]["bid"],100.5)
+    def test_keychain_resolution_is_just_in_time(self):
+        def loader():
+            return ("test-key", "test-secret")
+        seen={}
+        def opener(req, timeout):
+            seen["method"]=req.get_method()
+            seen["key"]=req.get_header("Apca-api-key-id")
+            seen["secret"]=req.get_header("Apca-api-secret-key")
+            return Response()
+        result=market_data.get_quotes(["AAPL"],opener=opener,credential_loader=loader)
+        self.assertEqual(seen,{"method":"GET","key":"test-key","secret":"test-secret"})
+        self.assertTrue(result["read_only"])
+        self.assertFalse(result["broker_connected"])
     def test_invalid_symbols_and_feed(self):
         with patch.dict(os.environ, {"APCA_API_KEY_ID":"example","APCA_API_SECRET_KEY":"example"}):
             for s in ["BAD/../", "", "A"*40]:
