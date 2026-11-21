@@ -38,7 +38,7 @@ Do not activate a second account as authoritative until the approved data migrat
 
 ## Market data credentials
 
-`GET /api/quotes?symbols=AAPL,MSFT&feed=iex` uses Alpaca's HTTPS market data API with `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` provided securely to the **server process**. No credentials are stored in the repository or frontend. Do not place keys into a GitHub commit, LaunchAgent plist, browser, or chat. If no keys are configured, the endpoint fails closed with a 503 status. Alpaca quote access does not imply Alpaca brokerage authorization or any right to trade.
+`GET /api/quotes?symbols=AAPL,MSFT&feed=iex` uses Alpaca's HTTPS market-data API. On macOS, the adapter resolves the existing login-Keychain service `com.firecattechnology.Sigil.dev.credentials` with accounts `alpaca_api_key` and `alpaca_secret_key` immediately before the request. It never stores or logs credential values. Explicit process environment variables are supported for isolated deployments and tests only. Missing or inaccessible Keychain items fail closed with HTTP 503. Alpaca remains data-only; quote access does not authorize brokerage orders.
 
 ## Reality checks
 
@@ -55,3 +55,18 @@ python3 -m py_compile app.py risk.py market_data.py backup.py
 ```
 
 © 2026 FLY contributors. MIT License.
+
+
+## Private production-preparation phase
+
+The GitHub repository is intentionally **private**. Public open-source release is a final milestone only after production-readiness review, security review, provider validation, recovery testing, and owner approval. Do not change repository visibility before that approval.
+
+## Alpaca credential handling on macOS
+
+The Air's intended Keychain item is service `com.firecattechnology.Sigil.dev.credentials`, with accounts `alpaca_api_key` and `alpaca_secret_key`, in the user's login Keychain. The adapter retrieves values just-in-time with macOS `security` and passes them only in the HTTPS request headers. It never prints, logs, stores, or returns the values. If either item is missing or Keychain access is denied, the quote request fails closed. No credentials were found on the current Air during the last check; quote endpoint therefore returns HTTP 503 until those two items are available.
+
+Alpaca remains market-data only. Public is the intended actual brokerage path, but its prior 2FA recovery issue remains unresolved. Do not attempt Public authentication, enable Public integration, or submit orders until account access and the user's explicit approval are confirmed. Paper simulator events and balances are separate from actual Public account state.
+
+## Release policy
+
+Do not expose the service beyond localhost, do not enable live order submission, and do not make the GitHub repository public during this preparation phase. Public release is the final step after production sign-off.
