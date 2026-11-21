@@ -24,7 +24,7 @@
     </nav>
     <div class="nav-title tools-title">SYSTEM</div>
     <div class="sys-list"><div class="sys-row"><span>ALPACA DATA</span><b id="navAlpaca" class="sys-off">NOT CONNECTED</b></div><div class="sys-row"><span>PUBLIC BROKER</span><b class="sys-off">NOT CONNECTED</b></div><div class="sys-row"><span>ORDER ENGINE</span><b class="sys-ok">PAPER ONLY</b></div><div class="sys-row"><span>HOST</span><b class="sys-ok">MACBOOK AIR</b></div></div>
-    <div class="sidebar-bottom"><div class="avatar">F</div><div><strong>FLY Workspace</strong><small>Self-hosted · Open source</small></div><span class="sidebar-more">···</span></div>
+    <div class="sidebar-bottom"><div class="avatar">F</div><div><strong>FLY Workspace</strong><small>Self-hosted · Private preview</small></div><span class="sidebar-more">···</span></div>
   </aside>
   <div class="workspace">
     <header class="topbar">
@@ -60,7 +60,7 @@
       <section id="view-markets" class="view"><div class="row-grid secondary-grid"><section class="panel"><div class="panel-header"><div><h2>Alpaca quote monitor</h2><p>Read-only provider quotes, not executable orders</p></div><span class="panel-meta">IEX / DELAYED SIP</span></div><form id="quoteForm" class="quote-form"><div class="field"><label for="quoteSymbols">SYMBOLS · MAX 10</label><input id="quoteSymbols" value="AAPL,MSFT,NVDA,SPY" placeholder="AAPL,MSFT"></div><button class="secondary-btn" type="submit">LOAD QUOTES</button></form><div class="table-scroll"><table><thead><tr><th>SYMBOL</th><th>BID</th><th>ASK</th><th>QUOTE TIMESTAMP</th></tr></thead><tbody id="quoteRows"><tr><td colspan="4" class="empty">Connect Alpaca read-only market-data credentials to load quotes.</td></tr></tbody></table></div><p id="quoteMessage" class="form-message" aria-live="polite">Quotes are not connected to the paper order ticket.</p></section><section class="panel"><div class="panel-header"><div><h2>Provider integrity</h2><p>Data provenance is displayed explicitly</p></div><span class="panel-meta">SOURCE REGISTRY</span></div><div class="method"><div><b>ALPACA</b><span id="marketProvider">Credentials unavailable</span></div><div><b>FEED</b><span>IEX default; delayed SIP optional</span></div><div><b>ORDERS</b><span>API integration not present</span></div><div><b>PUBLIC</b><span>Read-only integration not yet configured</span></div><div><b>RECONCILIATION</b><span>Not implemented</span></div></div></section></div></section>
       <section id="view-activity" class="view"><section class="panel"><div class="panel-header"><div><h2>Paper order audit</h2><p>Locally persisted simulator events. Not tamper-evident or externally archived.</p></div><span class="panel-meta">LAST 30 ENTRIES</span></div><div class="table-scroll"><table><thead><tr><th>TIME (UTC)</th><th>ACTION</th><th>ASSET</th><th>SHARES</th><th>HYPOTHETICAL PRICE</th><th>NOTIONAL</th></tr></thead><tbody id="history"></tbody></table></div></section></section>
     </main>
-    <footer class="footer"><span>FLY <b>BY FIRECAT TECHNOLOGY</b> · MIT OPEN SOURCE</span><span>LOCAL HOST · NO REAL MONEY · NOT AFFILIATED WITH BLACKROCK</span></footer>
+    <footer class="footer"><span>FLY <b>BY FIRECAT TECHNOLOGY</b> · PRIVATE PREVIEW</span><span>LOCAL HOST · NO REAL MONEY · NOT AFFILIATED WITH BLACKROCK</span></footer>
   </div>
 </div>
 </body>
