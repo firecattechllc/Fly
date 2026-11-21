@@ -1,0 +1,17 @@
+services:
+  opensigil:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8877:8877"
+    volumes:
+      - ./data:/data
+    environment:
+      FLY_DB: /data/paper.db
+      FLY_HOST: 0.0.0.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 256m
