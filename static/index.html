@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070c15">
+  <meta name="fly-token" content="__TOKEN__">
+  <title>FLY — Portfolio Intelligence</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-icon"><svg viewBox="0 0 44 44" aria-hidden="true"><path d="M6 30 38 7 26 37l-6-12-14 5Zm14-5L38 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><strong>FLY<span class="brand-dot">.</span></strong><small>PORTFOLIO INTELLIGENCE</small></div></div>
+    <div class="environment"><span class="live-dot"></span> LOCAL WORKSPACE <span class="env-arrow">⌄</span></div>
+    <div class="nav-title">WORKSPACE</div>
+    <nav class="nav" aria-label="Primary">
+      <button class="nav-item selected" data-view="overview"><span class="nav-icon">▦</span> Overview <span class="nav-trail">⌘1</span></button>
+      <button class="nav-item" data-view="portfolio"><span class="nav-icon">◫</span> Portfolio <span class="nav-trail">⌘2</span></button>
+      <button class="nav-item" data-view="risk"><span class="nav-icon">◎</span> Risk analytics <span class="nav-trail">⌘3</span></button>
+      <button class="nav-item" data-view="markets"><span class="nav-icon">⌁</span> Market monitor <span class="nav-trail">⌘4</span></button>
+      <button class="nav-item" data-view="activity"><span class="nav-icon">≡</span> Audit trail <span class="nav-trail">⌘5</span></button>
+    </nav>
+    <div class="nav-title tools-title">SYSTEM</div>
+    <div class="sys-list"><div class="sys-row"><span>ALPACA DATA</span><b id="navAlpaca" class="sys-off">NOT CONNECTED</b></div><div class="sys-row"><span>PUBLIC BROKER</span><b class="sys-off">NOT CONNECTED</b></div><div class="sys-row"><span>ORDER ENGINE</span><b class="sys-ok">PAPER ONLY</b></div><div class="sys-row"><span>HOST</span><b class="sys-ok">MACBOOK AIR</b></div></div>
+    <div class="sidebar-bottom"><div class="avatar">F</div><div><strong>FLY Workspace</strong><small>Self-hosted · Open source</small></div><span class="sidebar-more">···</span></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="crumb">WORKSPACE <span>/</span> <b id="crumb">Overview</b></div>
+      <div class="top-actions"><span id="clock" class="clock">—</span><span class="separator"></span><span class="top-status"><i></i> SYSTEM ONLINE</span><span class="pill-paper">PAPER ENVIRONMENT</span></div>
+    </header>
+    <main class="content">
+      <div class="page-heading"><div><div class="eyebrow">FLY / COMMAND CENTER <span class="version">V0.3</span></div><h1 id="pageTitle">Portfolio overview</h1><p id="pageSubtitle">A unified view of positions, exposure, and decision support.</p></div><div class="heading-right"><button class="ghost-btn" id="refresh" type="button">↻ &nbsp; Refresh</button><div class="time-tag">AS OF <span id="asof">—</span></div></div></div>
+      <div class="important-strip"><span class="strip-dot"></span><strong>SIMULATED ENVIRONMENT</strong><span>Figures use hypothetical, manually entered prices unless explicitly marked as provider quotes. No real funds or live order execution.</span></div>
+      <section id="view-overview" class="view active">
+        <div class="kpis">
+          <div class="kpi"><div class="kpi-name">TOTAL SIMULATED EQUITY <span>◇</span></div><div class="big-number" id="equity">—</div><div class="kpi-bottom"><span class="chip-neutral">PAPER ACCOUNT</span><span>USD</span></div></div>
+          <div class="kpi"><div class="kpi-name">AVAILABLE CASH <span>◈</span></div><div class="big-number" id="cash">—</div><div class="kpi-bottom"><span id="cashPct" class="chip-neutral">—</span><span>OF PORTFOLIO</span></div></div>
+          <div class="kpi"><div class="kpi-name">GROSS EXPOSURE <span>▣</span></div><div class="big-number" id="exposure">—</div><div class="kpi-bottom"><span id="investedPct" class="chip-neutral">—</span><span>INVESTED</span></div></div>
+          <div class="kpi"><div class="kpi-name">LARGEST POSITION <span>◎</span></div><div class="big-number" id="concentration">—</div><div class="kpi-bottom"><span id="positionsCount" class="chip-neutral">—</span><span>OPEN POSITIONS</span></div></div>
+        </div>
+        <div class="row-grid primary-grid">
+          <section class="panel chart-panel"><div class="panel-header"><div><h2>Portfolio composition</h2><p>Simulated asset allocation · current manual marks</p></div><span class="panel-meta">CASH + HOLDINGS</span></div><div class="composition"><div class="donut-wrap"><div id="donut" class="donut"><div class="donut-hole"><small>EQUITY</small><strong id="donutEquity">—</strong><span>SIMULATED USD</span></div></div></div><div class="allocation"><div class="allocation-title">ALLOCATION BY ASSET</div><div id="allocationList"></div><div class="allocation-foot">Amounts and weights are based on last user-entered prices, not broker valuations.</div></div></div></section>
+          <section class="panel scenario-panel"><div class="panel-header"><div><h2>Scenario analysis</h2><p>Illustrative parallel equity shocks</p></div><span class="panel-meta">WHAT-IF</span></div><div class="scenario-summary"><div class="scenario-label">PROJECTED SIMULATED EQUITY</div><div class="scenario-result" id="stressEquity">—</div><div id="stressDelta" class="stress-delta">—</div></div><div class="scenario-controls"><button class="shock active" data-shock="mild" type="button">−5%</button><button class="shock" data-shock="correction" type="button">−10%</button><button class="shock" data-shock="severe" type="button">−20%</button></div><div class="stress-track"><div id="stressBar"></div></div><div class="panel-explainer"><span class="explain-icon">ⓘ</span> Arithmetic shocks assume all held positions move equally. Not VaR, a prediction, or an Aladdin risk model.</div></section>
+        </div>
+        <div class="row-grid secondary-grid">
+          <section class="panel"><div class="panel-header"><div><h2>Holdings overview</h2><p>Current simulated positions</p></div><button class="text-action" data-jump="portfolio">VIEW PORTFOLIO ↗</button></div><div class="table-scroll"><table><thead><tr><th>ASSET</th><th>QUANTITY</th><th>MANUAL MARK</th><th>VALUE</th><th>WEIGHT</th></tr></thead><tbody id="holdingsOverview"></tbody></table></div></section>
+          <section class="panel"><div class="panel-header"><div><h2>Operating posture</h2><p>Controls, data access, and connectivity</p></div><span class="panel-meta">GOVERNANCE</span></div><div class="posture"><div><span><i class="status-indicator good"></i> Portfolio simulator</span><b>ENABLED</b></div><div><span><i class="status-indicator good"></i> Buy notional cap</span><b>10% PER ORDER</b></div><div><span><i class="status-indicator muted"></i> Alpaca quote feed</span><b id="providerStatus">NOT CONFIGURED</b></div><div><span><i class="status-indicator muted"></i> Public account read</span><b>NOT CONFIGURED</b></div><div><span><i class="status-indicator good"></i> Live broker execution</span><b>DISABLED</b></div></div></section>
+        </div>
+      </section>
+      <section id="view-portfolio" class="view">
+        <div class="row-grid secondary-grid portfolio-grid">
+          <section class="panel"><div class="panel-header"><div><h2>Portfolio inventory</h2><p>Holdings valued at user-specified hypothetical marks</p></div><span class="panel-meta">NO BROKER SYNC</span></div><div class="table-scroll"><table><thead><tr><th>SYMBOL</th><th>QUANTITY</th><th>MARK (USD)</th><th>VALUE</th><th>WEIGHT</th></tr></thead><tbody id="holdingsFull"></tbody></table></div></section>
+          <section class="panel ticket-panel"><div class="panel-header"><div><h2>Paper order ticket</h2><p>Simulation only — no brokerage endpoint</p></div><span class="tag-amber">SIMULATION</span></div><form id="order"><div class="field"><label for="symbol">ASSET SYMBOL</label><input id="symbol" name="symbol" placeholder="e.g. AAPL" maxlength="10" autocomplete="off" required></div><div class="two-cols"><div class="field"><label for="side">SIDE</label><select id="side" name="side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select></div><div class="field"><label for="qty">WHOLE SHARES</label><input id="qty" name="qty" type="number" min="1" max="100000" value="1" required></div></div><div class="field"><label for="price">HYPOTHETICAL UNIT PRICE (USD)</label><input id="price" name="price" type="number" min=".01" max="1000000" step=".01" placeholder="100.00" required></div><div class="ticket-foot"><span>MAX BUY NOTIONAL</span><b>10% OF PAPER EQUITY</b></div><button class="primary-btn" type="submit">SIMULATE ORDER <span>↗</span></button><p id="message" class="form-message" aria-live="polite">No live order can be sent.</p></form></section>
+        </div>
+      </section>
+      <section id="view-risk" class="view"><div class="row-grid secondary-grid"><section class="panel"><div class="panel-header"><div><h2>Exposure breakdown</h2><p>Unlevered positions and available simulated cash</p></div><span class="panel-meta">DETERMINISTIC</span></div><div id="riskWeights" class="risk-weights"></div></section><section class="panel"><div class="panel-header"><div><h2>Risk methodology</h2><p>Explicit assumptions and boundaries</p></div><span class="panel-meta">MODEL CARD</span></div><div class="method"><div><b>MARKING</b><span>Last manually entered unit price</span></div><div><b>EXPOSURE</b><span>Quantity × unit price, long-only</span></div><div><b>CONCENTRATION</b><span>Largest holding / paper equity</span></div><div><b>SHOCKS</b><span>Parallel −5%, −10%, −20% holding value</span></div><div><b>NOT INCLUDED</b><span>Volatility, factor risk, historical VaR, taxes, commissions, slippage, liquidity and correlations</span></div></div></section></div></section>
+      <section id="view-markets" class="view"><div class="row-grid secondary-grid"><section class="panel"><div class="panel-header"><div><h2>Alpaca quote monitor</h2><p>Read-only provider quotes, not executable orders</p></div><span class="panel-meta">IEX / DELAYED SIP</span></div><form id="quoteForm" class="quote-form"><div class="field"><label for="quoteSymbols">SYMBOLS · MAX 10</label><input id="quoteSymbols" value="AAPL,MSFT,NVDA,SPY" placeholder="AAPL,MSFT"></div><button class="secondary-btn" type="submit">LOAD QUOTES</button></form><div class="table-scroll"><table><thead><tr><th>SYMBOL</th><th>BID</th><th>ASK</th><th>QUOTE TIMESTAMP</th></tr></thead><tbody id="quoteRows"><tr><td colspan="4" class="empty">Connect Alpaca read-only market-data credentials to load quotes.</td></tr></tbody></table></div><p id="quoteMessage" class="form-message" aria-live="polite">Quotes are not connected to the paper order ticket.</p></section><section class="panel"><div class="panel-header"><div><h2>Provider integrity</h2><p>Data provenance is displayed explicitly</p></div><span class="panel-meta">SOURCE REGISTRY</span></div><div class="method"><div><b>ALPACA</b><span id="marketProvider">Credentials unavailable</span></div><div><b>FEED</b><span>IEX default; delayed SIP optional</span></div><div><b>ORDERS</b><span>API integration not present</span></div><div><b>PUBLIC</b><span>Read-only integration not yet configured</span></div><div><b>RECONCILIATION</b><span>Not implemented</span></div></div></section></div></section>
+      <section id="view-activity" class="view"><section class="panel"><div class="panel-header"><div><h2>Paper order audit</h2><p>Locally persisted simulator events. Not tamper-evident or externally archived.</p></div><span class="panel-meta">LAST 30 ENTRIES</span></div><div class="table-scroll"><table><thead><tr><th>TIME (UTC)</th><th>ACTION</th><th>ASSET</th><th>SHARES</th><th>HYPOTHETICAL PRICE</th><th>NOTIONAL</th></tr></thead><tbody id="history"></tbody></table></div></section></section>
+    </main>
+    <footer class="footer"><span>FLY <b>BY FIRECAT TECHNOLOGY</b> · MIT OPEN SOURCE</span><span>LOCAL HOST · NO REAL MONEY · NOT AFFILIATED WITH BLACKROCK</span></footer>
+  </div>
+</div>
+</body>
+</html>
