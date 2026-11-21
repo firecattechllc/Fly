@@ -1,4 +1,4 @@
-"""OpenSIGIL: deliberately paper-only, offline, local portfolio simulator."""
+"""FLY: deliberately paper-only, local portfolio intelligence workspace."""
 import json
 import os
 import re
@@ -119,6 +119,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         self.send_header("Content-Security-Policy", "default-src 'none'")
         self.end_headers()
         self.wfile.write(raw)
@@ -144,6 +147,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(js)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
             self.end_headers()
             self.wfile.write(js)
         elif path == "/style.css":
@@ -153,6 +159,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(css)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
             self.end_headers()
             self.wfile.write(css)
         elif path == "/api/risk":
@@ -178,7 +187,14 @@ class Handler(BaseHTTPRequestHandler):
             except MarketDataError as exc:
                 self.respond(503, {"error": str(exc), "read_only": True})
         elif path == "/healthz":
-            self.respond(200, {"status": "ok", "mode": "paper"})
+            try:
+                with connection() as db:
+                    check = db.execute("PRAGMA quick_check").fetchone()[0]
+                if check != "ok":
+                    return self.respond(503, {"status": "unhealthy", "mode": "paper"})
+                self.respond(200, {"status": "ok", "mode": "paper", "database": "ok"})
+            except sqlite3.Error:
+                self.respond(503, {"status": "unhealthy", "mode": "paper", "database": "unavailable"})
         else:
             self.respond(404, {"error": "Not found"})
 
