@@ -1,6 +1,8 @@
 services:
-  opensigil:
+  fly:
     build: .
+    container_name: fly
+    init: true
     restart: unless-stopped
     ports:
       - "127.0.0.1:8877:8877"
@@ -15,3 +17,11 @@ services:
       - ALL
     pids_limit: 128
     mem_limit: 256m
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8877/healthz', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
