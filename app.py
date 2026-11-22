@@ -17,6 +17,7 @@ from analytics import calculate as calculate_analytics
 from portfolio_intelligence import report as intelligence_report
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 from simulation import ensure_baseline, replay as replay_simulation
+from market_simulation import calculate as calculate_market_simulation
 import auth
 
 os.umask(0o077)  # Restrict SQLite and log files to the hosting user
@@ -250,6 +251,31 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(200,replay_simulation(db))
                 finally:
                     db.close()
+        elif path == "/api/simulation/market":
+            try:
+                with LOCK:
+                    db=connection()
+                    try:
+                        baseline=db.execute("SELECT created_utc,positions_json FROM simulation_baseline WHERE id=1").fetchone()
+                        if baseline is None:
+                            self.respond(409,{"status":"BASELINE_REQUIRED"}); return
+                        import json as _json
+                        symbols={p["symbol"] for p in _json.loads(baseline["positions_json"])}
+                        symbols.update(r[0] for r in db.execute("SELECT DISTINCT symbol FROM transactions"))
+                        if not symbols:
+                            self.respond(200,{"status":"INSUFFICIENT_DATA","points":[],"message":"No holdings or transactions exist yet."}); return
+                        if len(symbols)>10:
+                            self.respond(400,{"error":"Market simulation supports at most 10 symbols"}); return
+                        histories={}
+                        for symbol in sorted(symbols):
+                            histories[symbol]=MARKET_CACHE.get(("bars",symbol,365,"iex"),300,
+                                lambda symbol=symbol:alpaca_bars(symbol,365,"iex"))
+                        result=calculate_market_simulation(db,histories)
+                        self.respond(200,result)
+                    finally:
+                        db.close()
+            except MarketDataError as exc:
+                self.respond(503,{"status":"MARKET_DATA_UNAVAILABLE","error":str(exc),"read_only":True})
         elif path == "/api/intelligence":
             with LOCK:
                 db = connection()
