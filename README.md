@@ -133,3 +133,7 @@ Authenticated `GET /api/analytics?days=90` loads read-only Alpaca IEX daily bars
 - Five deterministic stress scenarios are included. They are illustrative parallel equity shocks, not forecasts, VaR, or validated factor models.
 - Authenticated `/api/intelligence` returns the complete JSON report; authenticated `/api/report.csv` exports portfolio, sector and stress summary rows.
 - Existing databases receive the transaction table additively. Existing positions are not fabricated into historical trades.
+
+## Dated transaction replay
+
+The database now captures a one-time opening snapshot of cash and manually marked holdings in `simulation_baseline`. The authenticated `GET /api/simulation` endpoint replays subsequent paper transactions in chronological order and checks replayed cash, quantities and marks against the current account. It withholds return figures when reconciliation fails. This is an event-based simulator replay using transaction prices and last transaction marks, not a daily market-price backtest or time-weighted performance series. Opening positions have unknown pre-baseline cost basis; no historic trades are fabricated.
