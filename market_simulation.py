@@ -141,6 +141,53 @@ def calculate(db, histories, benchmark="SPY"):
     te=annualized_vol(active_daily)
     mean_active=sum(active_daily)/len(active_daily) if active_daily else 0
     ir=round(mean_active/(sample_std(active_daily))*math.sqrt(252),4) if sample_std(active_daily) not in (None,0) else None
+    # Risk-free rate is deliberately set to 0%; this is a transparent proxy, not a live Treasury curve.
+    downside=[min(x,0.0) for x in portfolio_daily]
+    downside_dev=(sum(x*x for x in downside)/len(downside))**0.5 if downside else None
+    annual_downside=downside_dev*math.sqrt(252) if downside_dev is not None else None
+    annual_mean=sum(portfolio_daily)/len(portfolio_daily)*252 if portfolio_daily else 0
+    sharpe=round((annual_mean/(sample_std(portfolio_daily)*math.sqrt(252))),4) if sample_std(portfolio_daily) not in (None,0) else None
+    sortino=round(annual_mean/annual_downside,4) if annual_downside not in (None,0) else None
+    # Sector contribution aggregates security-level daily contribution; unknown tickers remain explicit.
+    from sectors import SECTOR_BY_SYMBOL, classify
+    sector_values={}
+    for item in contributions:
+        sector=SECTOR_BY_SYMBOL.get(item["symbol"],"Unclassified")
+        bucket=sector_values.setdefault(sector,{"sector":sector,"contribution_cents":0,"symbols":[]})
+        bucket["contribution_cents"]+=item["contribution_cents"]
+        bucket["symbols"].append(item["symbol"])
+    sector_contribution=[{"sector":k,"contribution_cents":v["contribution_cents"],
+                           "contribution_pct_baseline":round(v["contribution_cents"]/baseline_equity*100,4),
+                           "symbols":sorted(v["symbols"])}
+                          for k,v in sorted(sector_values.items())]
+    baseline_positions=json.loads(base["positions_json"])
+    current_positions=[{"symbol":s,"qty":h["qty"],"last_cents":h["mark"]}
+                       for s,h in holdings.items() if h["qty"]>0]
+    sector_exposure=classify(current_positions)
+    # ETF proxies are deliberately separate from sector classifications; they are not pure factor portfolios.
+    factor_labels={"QQQ":"Growth / Nasdaq-100 proxy","IWM":"Small-cap proxy",
+                   "IWD":"Value proxy","MTUM":"Momentum proxy","USMV":"Minimum-volatility proxy"}
+    factor_exposures=[]
+    for factor_symbol,label in factor_labels.items():
+        if factor_symbol not in histories: continue
+        fmap={b["timestamp"][:10]:float(b["close"]) for b in histories[factor_symbol].get("bars",[]) if float(b["close"])>0}
+        factor_dates=sorted(fmap)
+        factor_returns={factor_dates[i]:fmap[factor_dates[i]]/fmap[factor_dates[i-1]]-1
+                        for i in range(1,len(factor_dates)) if fmap[factor_dates[i-1]]>0}
+        portfolio_by_date={point["date"]:portfolio_daily[i] for i,point in enumerate(points)}
+        paired_dates=sorted(set(portfolio_by_date)&set(factor_returns))
+        paired=[(portfolio_by_date[d],factor_returns[d]) for d in paired_dates]
+        if len(paired)<3: continue
+        prets=[x[0] for x in paired]; frets=[x[1] for x in paired]
+        fm=sum(frets)/len(frets); pmf=sum(prets)/len(prets)
+        fvar=sum((x-fm)**2 for x in frets)/(len(frets)-1)
+        pvar=sum((x-pmf)**2 for x in prets)/(len(prets)-1)
+        cov=sum((x-pmf)*(y-fm) for x,y in paired)/(len(paired)-1)
+        beta=cov/fvar if fvar>0 else None
+        corr=cov/(pvar*fvar)**0.5 if pvar>0 and fvar>0 else None
+        factor_exposures.append({"symbol":factor_symbol,"factor":label,"beta":round(beta,4) if beta is not None else None,
+                                 "correlation":round(corr,4) if corr is not None else None,
+                                 "observations":len(prets),"first_date":paired_dates[0],"last_date":paired_dates[-1]})
     rolling_p=rolling_vol(portfolio_daily); rolling_b=rolling_vol(benchmark_daily)
     for i,point in enumerate(points):
         point["rolling_20d_volatility_pct"]=rolling_p[i]
@@ -149,6 +196,11 @@ def calculate(db, histories, benchmark="SPY"):
                   "benchmark_annualized_volatility_pct":bvol,
                   "annualized_tracking_error_pct":te,
                   "information_ratio":ir,
+                  "sharpe_ratio_zero_rf":sharpe,
+                  "sortino_ratio_zero_mar":sortino,
+                  "downside_deviation_annualized_pct":round(annual_downside*100,4) if annual_downside is not None else None,
+                  "downside_deviation_method":"Root mean square of negative daily returns, annualized by sqrt(252); zero minimum acceptable return.",
+                  "risk_free_rate_assumption_pct":0.0,
                   "volatility_window_sessions":20,
                   "volatility_method":"Sample standard deviation of daily simple returns × sqrt(252); rolling metric requires 20 observations."}
     tear_sheet={"period_start":points[0]["date"],"period_end":points[-1]["date"],
@@ -158,7 +210,9 @@ def calculate(db, histories, benchmark="SPY"):
                 "max_drawdown_pct":round(max_drawdown*100,4),
                 "portfolio_annualized_volatility_pct":pvol,
                 "benchmark_annualized_volatility_pct":bvol,
-                "tracking_error_pct":te,"information_ratio":ir,
+                "tracking_error_pct":te,"information_ratio":ir,"sharpe_ratio_zero_rf":sharpe,
+                "sortino_ratio_zero_mar":sortino,
+                "downside_deviation_annualized_pct":risk_metrics["downside_deviation_annualized_pct"],
                 "opening_equity_cents":baseline_equity,"ending_equity_cents":equity,
                 "ending_cash_cents":cash,"ending_market_value_cents":market_value,
                 "position_count":sum(1 for h in holdings.values() if h["qty"]>0),
@@ -171,6 +225,8 @@ def calculate(db, histories, benchmark="SPY"):
             "max_drawdown_pct":round(max_drawdown*100,4),"risk_metrics":risk_metrics,"tear_sheet":tear_sheet,
             "monthly_returns":_periods(points,"month"),
             "quarterly_returns":_periods(points,"quarter"),"contribution_attribution":contributions,
+            "sector_exposure":sector_exposure,"sector_contribution":sector_contribution,
+            "factor_exposures":factor_exposures,
             "scenario_comparison":_scenarios(points),"points":points,
             "method":"Daily close-to-close paper NAV, external cash flows excluded, chained daily returns. Benchmark uses the same aligned sessions.",
             "limitations":"Approximate UTC trade-date application; simple contribution attribution uses prior-close position weights and does not fully allocate intraday execution effects. Raw IEX bars may omit dividends/corporate actions and represent one exchange. No audited statement or recommendation."}
