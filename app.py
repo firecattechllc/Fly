@@ -14,6 +14,7 @@ from risk import calculate as calculate_risk
 from historical import get_bars as alpaca_bars, research as historical_research
 from market_cache import MARKET_CACHE
 from analytics import calculate as calculate_analytics
+from portfolio_intelligence import report as intelligence_report
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 import auth
 
@@ -35,6 +36,7 @@ def connection():
     db.execute("CREATE TABLE IF NOT EXISTS account (id INTEGER PRIMARY KEY CHECK(id=1), cash INTEGER NOT NULL CHECK(cash >= 0))")
     db.execute("CREATE TABLE IF NOT EXISTS positions (symbol TEXT PRIMARY KEY, qty INTEGER NOT NULL CHECK(qty >= 0), last_cents INTEGER NOT NULL CHECK(last_cents > 0))")
     db.execute("CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, kind TEXT NOT NULL, payload TEXT NOT NULL)")
+    db.execute("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_utc TEXT NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL CHECK(side IN ('BUY','SELL')), qty INTEGER NOT NULL CHECK(qty > 0), price_cents INTEGER NOT NULL CHECK(price_cents > 0), notional_cents INTEGER NOT NULL CHECK(notional_cents > 0))")
     db.execute("INSERT OR IGNORE INTO account(id,cash) VALUES (1,?)", (STARTING_CASH,))
     ensure_marks(db)
     db.commit()
@@ -107,6 +109,8 @@ def trade(payload):
                     db.execute("DELETE FROM positions WHERE symbol=?", (symbol,))
             event = {"symbol": symbol, "side": side, "qty": qty, "hypothetical_price_cents": price, "notional_cents": amount}
             db.execute("INSERT INTO events(kind,payload) VALUES(?,?)", ("PAPER_ORDER", json.dumps(event, sort_keys=True)))
+            from datetime import datetime, timezone
+            db.execute("INSERT INTO transactions(created_utc,symbol,side,qty,price_cents,notional_cents) VALUES(?,?,?,?,?,?)", (datetime.now(timezone.utc).isoformat(),symbol,side,qty,price,amount))
             record_mark(db, "PAPER_ORDER")
             db.commit()
             return snapshot(db)
@@ -235,6 +239,31 @@ class Handler(BaseHTTPRequestHandler):
                 db = connection()
                 try:
                     self.respond(200, calculate_risk(snapshot(db)))
+                finally:
+                    db.close()
+        elif path == "/api/intelligence":
+            with LOCK:
+                db = connection()
+                try:
+                    self.respond(200, intelligence_report(db, snapshot(db)))
+                finally:
+                    db.close()
+        elif path == "/api/report.csv":
+            with LOCK:
+                db = connection()
+                try:
+                    state=snapshot(db); report=intelligence_report(db,state)
+                    rows=["section,metric,value"]
+                    rows.append("portfolio,cash_cents,"+str(state["cash_cents"]))
+                    rows.append("portfolio,equity_cents,"+str(state["equity_cents"]))
+                    for x in report["sector_exposure"]["sectors"]:
+                        rows.append("sector,"+x["sector"]+","+str(x["weight_pct"]))
+                    for x in report["stress_testing"]["scenarios"]:
+                        rows.append("stress,"+x["id"]+","+str(x["hypothetical_pnl_cents"]))
+                    raw=("\\n".join(rows)+"\\n").encode()
+                    self.send_response(200); self.send_header("Content-Type","text/csv; charset=utf-8")
+                    self.send_header("Content-Disposition", "attachment; filename=fly-paper-report.csv")
+                    self.send_header("Content-Length",str(len(raw))); self.send_header("Cache-Control","no-store"); self.end_headers(); self.wfile.write(raw)
                 finally:
                     db.close()
         elif path == "/api/state":
