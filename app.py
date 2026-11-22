@@ -16,6 +16,7 @@ from market_cache import MARKET_CACHE
 from analytics import calculate as calculate_analytics
 from portfolio_intelligence import report as intelligence_report
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
+from simulation import ensure_baseline, replay as replay_simulation
 import auth
 
 os.umask(0o077)  # Restrict SQLite and log files to the hosting user
@@ -39,6 +40,7 @@ def connection():
     db.execute("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_utc TEXT NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL CHECK(side IN ('BUY','SELL')), qty INTEGER NOT NULL CHECK(qty > 0), price_cents INTEGER NOT NULL CHECK(price_cents > 0), notional_cents INTEGER NOT NULL CHECK(notional_cents > 0))")
     db.execute("INSERT OR IGNORE INTO account(id,cash) VALUES (1,?)", (STARTING_CASH,))
     ensure_marks(db)
+    ensure_baseline(db)
     db.commit()
     return db
 
@@ -239,6 +241,13 @@ class Handler(BaseHTTPRequestHandler):
                 db = connection()
                 try:
                     self.respond(200, calculate_risk(snapshot(db)))
+                finally:
+                    db.close()
+        elif path == "/api/simulation":
+            with LOCK:
+                db=connection()
+                try:
+                    self.respond(200,replay_simulation(db))
                 finally:
                     db.close()
         elif path == "/api/intelligence":
