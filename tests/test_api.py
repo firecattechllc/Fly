@@ -111,6 +111,13 @@ class ApiSecurityTests(unittest.TestCase):
             self.assertEqual(status,401)
         status,_,_=self.post_json("/api/auth/login",{"password":PASS})
         self.assertEqual(status,429)
+    def test_login_rate_limit_storage_is_bounded(self):
+        for i in range(256):
+            auth.record_failed_login("test-ip-"+str(i))
+        auth.record_failed_login("overflow-ip")
+        self.assertEqual(len(auth.FAILED),256)
+        self.assertFalse(auth.allowed_login("overflow-ip"))
+        self.assertNotIn("overflow-ip",auth.FAILED)
     def test_login_and_logout(self):
         cookie=self.setup()
         self.assertEqual(self.post_json("/api/auth/logout",{},{"Cookie":cookie})[0],403)
