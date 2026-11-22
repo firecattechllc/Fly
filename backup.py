@@ -49,5 +49,53 @@ def backup(source=SOURCE, destination=DEST):
     os.chmod(destination, 0o700)
     return str(target)
 
+def backup_owner(auth_path, destination, database_backup):
+    """Copy the owner verifier privately; never include it in Git or logs."""
+    import hashlib
+    import json
+    import stat
+
+    auth_path = Path(auth_path)
+    if not auth_path.exists():
+        return False  # First-run installation before account creation.
+    metadata = auth_path.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise RuntimeError("Owner authentication file is not a private regular file")
+    payload = auth_path.read_bytes()
+    record = json.loads(payload)
+    if (record.get("algorithm") != "pbkdf2-sha256"
+            or not isinstance(record.get("digest"), str)
+            or not isinstance(record.get("salt"), str)):
+        raise RuntimeError("Owner authentication record invalid")
+    backup_path = Path(destination) / (Path(database_backup).stem + ".owner-auth.json")
+    fd = os.open(str(backup_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        if hashlib.sha256(backup_path.read_bytes()).digest() != hashlib.sha256(payload).digest():
+            raise RuntimeError("Owner authentication backup mismatch")
+        os.chmod(backup_path, 0o600)
+    except Exception:
+        backup_path.unlink(missing_ok=True)
+        raise
+    return True
+
+
+def backup_system():
+    """Create a SQLite snapshot and, if configured, a paired owner verifier."""
+    db_backup = backup()
+    auth_path = Path(os.environ.get("FLY_AUTH_PATH",
+                      Path(__file__).parent / "data" / "owner-auth.json"))
+    try:
+        backup_owner(auth_path, DEST, db_backup)
+    except Exception:
+        # Avoid reporting a partial backup as a successful complete recovery set.
+        Path(db_backup).unlink(missing_ok=True)
+        raise
+    return db_backup
+
+
 if __name__ == "__main__":
-    print(backup())
+    print(backup_system())
