@@ -299,3 +299,25 @@ async function runRiskLab(){
   finally{button.disabled=false}
 }
 $("runAnalytics").addEventListener("click",runRiskLab);
+
+
+async function loadIntelligence(){
+ const box=$("intelligenceMetrics"),button=$("loadIntelligence");button.disabled=true;
+ try{
+  const response=await fetch("/api/intelligence",{cache:"no-store"}),data=await response.json();
+  if(!response.ok)throw new Error(data.error||"Report unavailable");
+  const rows=[
+   ["SECTOR CLASSIFICATION",data.sector_exposure.status],
+   ...data.sector_exposure.sectors.map(x=>["SECTOR · "+x.sector,x.weight_pct+"%"]),
+   ["UNCLASSIFIED SYMBOLS",data.sector_exposure.unclassified.map(x=>x.symbol).join(", ")||"None"],
+   ["TRANSACTION ATTRIBUTION",data.attribution.status],
+   ["REALIZED P&L",data.attribution.realized_pnl_cents===undefined?"Unavailable":"$"+(data.attribution.realized_pnl_cents/100).toFixed(2)],
+   ["UNREALIZED P&L",data.attribution.unrealized_pnl_cents===undefined?"Unavailable":"$"+(data.attribution.unrealized_pnl_cents/100).toFixed(2)],
+   ...data.stress_testing.scenarios.map(x=>["STRESS · "+x.label,"$"+(x.hypothetical_pnl_cents/100).toFixed(2)])
+  ];
+  box.replaceChildren();
+  for(const [label,value] of rows){const row=document.createElement("div");row.append(node("b",label),node("span",String(value)));box.append(row)}
+ }catch(e){box.replaceChildren(node("div",e.message))}
+ finally{button.disabled=false}
+}
+$("loadIntelligence").addEventListener("click",loadIntelligence);
