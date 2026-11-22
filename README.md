@@ -88,3 +88,9 @@ This is a meaningful local security improvement but is not a production-grade mu
 The daily `backup.py` job now creates two paired files in `~/FLY-Backups`: `fly-<timestamp>.sqlite3` (the paper portfolio) and `fly-<timestamp>.owner-auth.json` (the salted owner password verifier). Both use mode `0600` under a private mode `0700` backup directory. The owner verifier is sensitive security material even though it does not contain the plaintext password; never upload it to GitHub or share it publicly. Local backups are not encrypted or off-device disaster recovery.
 
 Run `python3 recovery_check.py` to inspect the latest paired backup without altering the live application. This checks SQLite integrity, presence of portfolio tables, owner-record shape, and permissions. It does not test a full system restoration or prove that the user's actual password works after migration. For disaster recovery, an encrypted off-device copy and an isolated end-to-end restore/login drill are still required.
+
+## Paper equity observations
+
+FLY records an initial observation of the currently held *hypothetical* portfolio and a new valuation after each paper order, in the same SQLite transaction as the order. The authenticated `GET /api/performance` endpoint (documented without backticks escaping below) exposes up to 120 recent observations for the dashboard line chart. These are sampled **paper account equity marks**, not daily NAV, true market history, investment returns, historical backtests, or broker valuations. There are no estimated returns for periods before the first observation. The initial observation for an existing database uses its present cash and manual marks rather than pretending earlier trades have been priced historically.
+
+API endpoint: `/api/performance`. No credentials, portfolio database, or login verifier belong in GitHub.
