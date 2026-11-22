@@ -72,7 +72,7 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertEqual(status,401)
         status,_,_=self.request("GET","/api/performance")
         self.assertEqual(status,401)
-        for endpoint in ("/api/historical?symbol=SPY&days=30", "/api/research?symbol=SPY&days=30", "/api/analytics?days=90", "/api/intelligence", "/api/report.csv", "/api/simulation", "/api/simulation/market", "/api/report.pdf"):
+        for endpoint in ("/api/historical?symbol=SPY&days=30", "/api/research?symbol=SPY&days=30", "/api/analytics?days=90", "/api/intelligence", "/api/report.csv", "/api/simulation", "/api/simulation/market", "/api/advanced-analytics?days=365", "/api/report.pdf"):
             status,_,_=self.request("GET",endpoint)
             self.assertEqual(status,401)
         status,_,_=self.request("GET","/app.js")
@@ -100,6 +100,16 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertEqual(status,200)
         self.assertEqual(json.loads(body)["mode"],"PAPER MARK EVENTS ONLY")
         self.assertEqual(json.loads(body)["observations"],2)
+    def test_advanced_analytics_rejects_unbounded_lookback(self):
+        cookie=self.setup()
+        status,_,body=self.request("GET","/api/advanced-analytics?days=999",{"Cookie":cookie})
+        self.assertEqual(status,400,body)
+        self.assertTrue(json.loads(body)["read_only"])
+    def test_advanced_analytics_returns_insufficient_data_without_positions(self):
+        cookie=self.setup()
+        status,_,body=self.request("GET","/api/advanced-analytics?days=90",{"Cookie":cookie})
+        self.assertEqual(status,200,body)
+        self.assertEqual(json.loads(body)["status"],"INSUFFICIENT_DATA")
     def test_second_setup_rejected(self):
         self.setup()
         status,_,_=self.post_json("/api/auth/setup",{"password":PASS})
