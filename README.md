@@ -161,3 +161,16 @@ Risk metrics now include Sharpe (zero risk-free-rate assumption), Sortino (zero 
 Factor proxy exposure uses daily-return single-factor beta and correlation against QQQ (growth/Nasdaq-100 proxy), IWM (small-cap), IWD (value), MTUM (momentum), and USMV (minimum-volatility). Each is an ETF proxy, not a pure academic factor portfolio. At least three aligned daily observations are required. Factor coverage is supplemental: missing ETF history does not block the reconciled portfolio/ SPY report. Factor exposures and sector analytics are included in the dashboard and PDF.
 
 All outputs remain paper-only. Current positions, trade-date approximation, unadjusted IEX bars, dividend/corporate-action omissions, curated sector mapping, and limited sample history constrain interpretation. This is not GICS-certified attribution, multi-factor regression, VaR, or investment advice.
+
+
+## Advanced quantitative research (Quant Lab)
+
+The authenticated read-only `/api/advanced-analytics?days=365` endpoint and Markets > Advanced quantitative research panel combine five analytics engines:
+
+- **Multi-factor regression:** OLS with intercept against SPY market returns plus IWM-SPY size, IWD-SPY value, MTUM-SPY momentum, USMV-SPY low-volatility and QQQ-SPY growth proxy spreads. Reports coefficients, conventional t-statistics, R-squared, adjusted R-squared and residual volatility. Collinear optional proxies are deterministically excluded; optional ETFs with less than 80% coverage of the holdings/market sample are excluded.
+- **Sector rotation:** XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV and XLY sector ETF proxy returns, ranked on aligned recent 21/63/252-session windows.
+- **Efficient frontier:** deterministic long-only random/equal-weight/corner candidate portfolios, with minimum-variance, maximum-Sharpe (zero risk-free proxy) and approximate frontier points. This is a sample-estimate search, not a production convex optimizer.
+- **Monte Carlo:** 1,500 default one-year paths, bootstrapped with replacement from aligned historical daily portfolio returns. The seed is fixed for reproducibility. IID resampling is not a forecast and does not capture regime changes or fat-tail dynamics.
+- **Risk decomposition and scenario report:** Euler variance contributions from the sample covariance matrix, plus deterministic sector-aware illustrative shocks. Variance contributions should sum to 100% (small rounding differences aside); hedges can contribute negatively.
+
+The current paper holdings and manual marks determine weights, held constant through the historical sample. The analysis is not a historical holdings backtest. IEX history can be incomplete and unadjusted for dividends/splits. Regression t-statistics are conventional rather than HAC-robust. Sector ETFs are proxies, not pure factors; taxonomy and stress shocks are illustrative. All results remain descriptive, paper-only and not investment advice.
