@@ -11,6 +11,7 @@ services:
     environment:
       FLY_DB: /data/paper.db
       FLY_HOST: 0.0.0.0
+      FLY_AUTH_PATH: /data/owner-auth.json
     security_opt:
       - no-new-privileges:true
     cap_drop:
