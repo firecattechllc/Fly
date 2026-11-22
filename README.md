@@ -26,7 +26,7 @@ curl -fsS http://127.0.0.1:8877/healthz
 
 ## Mac mini deployment — planned, not yet cut over
 
-The Docker Compose file publishes only to mini's loopback. From a clean checkout on the mini:
+The Docker Compose file publishes only to mini's loopback and uses a managed `fly-data` Docker volume with an unprivileged container account. From a clean checkout on the mini:
 
 ```sh
 docker compose up -d --build
@@ -94,3 +94,15 @@ Run `python3 recovery_check.py` to inspect the latest paired backup without alte
 FLY records an initial observation of the currently held *hypothetical* portfolio and a new valuation after each paper order, in the same SQLite transaction as the order. The authenticated `GET /api/performance` endpoint (documented without backticks escaping below) exposes up to 120 recent observations for the dashboard line chart. These are sampled **paper account equity marks**, not daily NAV, true market history, investment returns, historical backtests, or broker valuations. There are no estimated returns for periods before the first observation. The initial observation for an existing database uses its present cash and manual marks rather than pretending earlier trades have been priced historically.
 
 API endpoint: `/api/performance`. No credentials, portfolio database, or login verifier belong in GitHub.
+
+## Mini staging and least-privilege container
+
+The mini deployment is **not yet cut over**. A staging smoke test of FLY passed on the mini without connecting real brokerage credentials or moving the Air's owner record or paper portfolio.
+
+The release image runs as unprivileged UID 10001 with a read-only root filesystem, no Linux capabilities, `no-new-privileges`, and a persistent managed Docker volume. The container's local HTTP service binds only to host loopback. On a future approved mini migration, **do not run Compose for the authoritative service until** the current Air recovery pair has been securely copied and restored into the persistent `fly-data` volume and owner login verified; Compose on an empty volume would create a distinct blank paper account.
+
+`FLY_HOST=0.0.0.0` inside Docker is necessary for publishing the container through the host's `127.0.0.1:8877` port mapping. Do not use `0.0.0.0` on the host's published port. This release remains a development system until authenticated access, restore testing, update policy, rate limiting and monitoring receive an independent review.
+
+## Alpaca market-data connection
+
+The HTTP adapter can request IEX/delayed-SIP stock quotes using just-in-time macOS Keychain credentials, but no accessible Air Keychain entries have been verified. Do not place credentials into GitHub issues, public source files, environment configuration in GitHub, or chat. Provider connectivity must be confirmed explicitly before the UI labels it operational. FLY never uses market quotes to execute real orders.
