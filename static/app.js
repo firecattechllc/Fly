@@ -335,6 +335,7 @@ async function renderExtendedPerformance(){
   const response=await fetch("/api/simulation/market",{cache:"no-store"}),data=await response.json();
   if(!response.ok)throw new Error(data.error||data.status||"Performance unavailable");
   if(data.status!=="DAILY_MARKET_REPLAY")throw new Error(data.message||data.status||"No reconciled performance series");
+  extendedPerformance=data;renderBenchmarkChart();renderTearSheet(data);
   box.replaceChildren();
   const add=(label,value)=>{const row=node("div");row.append(node("b",label),node("span",String(value)));box.append(row)};
   add("PORTFOLIO TWR",data.daily_time_weighted_return_pct+"%");
@@ -352,3 +353,52 @@ async function renderExtendedPerformance(){
  finally{button.disabled=false}
 }
 $("runMarketSimulation").addEventListener("click",renderExtendedPerformance);
+
+let extendedPerformance=null,selectedPerformanceRange="all";
+function renderBenchmarkChart(){
+ const root=$("benchmarkChart"),empty=$("benchmarkEmpty");root.replaceChildren();
+ if(!extendedPerformance||!extendedPerformance.points.length){empty.hidden=false;return}
+ let rows=extendedPerformance.points;
+ if(selectedPerformanceRange!=="all")rows=rows.slice(-Number(selectedPerformanceRange));
+ empty.hidden=true;
+ let pg=1,bg=1;
+ const series=rows.map(x=>{pg*=1+x.daily_return_pct/100;bg*=1+x.benchmark_return_pct/100;return {date:x.date,p:pg,b:bg}});
+ const vals=series.flatMap(x=>[x.p,x.b]),lo=Math.min(...vals),hi=Math.max(...vals),span=Math.max(hi-lo,0.0001);
+ const xy=(v,i)=>[24+i*952/Math.max(series.length-1,1),196-(v-lo)*168/span];
+ const ns="http://www.w3.org/2000/svg";
+ const el=(tag,attrs={})=>{const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));return n};
+ for(const y of [28,112,196])root.append(el("line",{x1:24,x2:976,y1:y,y2:y,stroke:"#25394d","stroke-width":1}));
+ for(const [key,color] of [["p","#4fd4b5"],["b","#769fff"]]){
+  const d=series.map((x,i)=>{const [a,b]=xy(x[key],i);return (i?"L":"M")+a.toFixed(2)+","+b.toFixed(2)}).join(" ");
+  root.append(el("path",{d,fill:"none",stroke:color,"stroke-width":3,"stroke-linecap":"round","stroke-linejoin":"round"}));
+  series.forEach((x,i)=>{if(i%Math.max(1,Math.floor(series.length/16))!==0&&i!==series.length-1)return;const [cx,cy]=xy(x[key],i),dot=el("circle",{cx,cy,r:4,fill:color});const title=el("title");title.textContent=x.date+" · "+(key==="p"?"Portfolio ":"SPY ")+((x[key]-1)*100).toFixed(3)+"%";dot.append(title);root.append(dot)});
+ }
+ const first=series[0],last=series[series.length-1];
+ $("chartPortfolioLabel").textContent="PORTFOLIO "+((last.p-1)*100).toFixed(2)+"%";
+ $("chartBenchmarkLabel").textContent="SPY "+((last.b-1)*100).toFixed(2)+"%";
+ $("chartPeriodLabel").textContent=first.date+" → "+last.date;
+}
+function renderTearSheet(data){
+ const t=data.tear_sheet||{},risk=data.risk_metrics||{},root=$("tearSheetMetrics"),rolling=$("rollingRiskMetrics");
+ root.replaceChildren();rolling.replaceChildren();
+ const add=(target,label,value)=>{const row=node("div");row.append(node("b",label),node("span",value===null||value===undefined?"Insufficient observations":String(value)));target.append(row)};
+ add(root,"PERIOD",t.period_start+" → "+t.period_end);
+ add(root,"PORTFOLIO / SPY TWR",t.portfolio_twr_pct+"% / "+t.benchmark_twr_pct+"%");
+ add(root,"ACTIVE RETURN",t.active_return_pct+"%");
+ add(root,"MAX DRAWDOWN",t.max_drawdown_pct+"%");
+ add(root,"OPENING / ENDING EQUITY",money(t.opening_equity_cents)+" / "+money(t.ending_equity_cents));
+ add(root,"ENDING CASH / INVESTED",money(t.ending_cash_cents)+" / "+money(t.ending_market_value_cents));
+ add(root,"OPEN POSITIONS",String(t.position_count));
+ add(rolling,"PORTFOLIO ANNUALIZED VOLATILITY",risk.portfolio_annualized_volatility_pct+"%");
+ add(rolling,"SPY ANNUALIZED VOLATILITY",risk.benchmark_annualized_volatility_pct+"%");
+ add(rolling,"ANNUALIZED TRACKING ERROR",risk.annualized_tracking_error_pct+"%");
+ add(rolling,"INFORMATION RATIO",risk.information_ratio);
+ const last=data.points[data.points.length-1];
+ add(rolling,"LATEST 20-SESSION ROLLING VOLATILITY",last.rolling_20d_volatility_pct===null?null:last.rolling_20d_volatility_pct+"%");
+ add(rolling,"LATEST SPY ROLLING VOLATILITY",last.benchmark_rolling_20d_volatility_pct===null?null:last.benchmark_rolling_20d_volatility_pct+"%");
+}
+document.querySelectorAll("#performanceRanges [data-range]").forEach(button=>button.addEventListener("click",()=>{
+ selectedPerformanceRange=button.dataset.range;
+ document.querySelectorAll("#performanceRanges [data-range]").forEach(b=>b.classList.toggle("active",b===button));
+ renderBenchmarkChart();
+}));
