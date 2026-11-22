@@ -270,3 +270,32 @@ async function historicalLookup(e){
   }catch(err){target.textContent=err.message;target.className="form-message err"}
 }
 $("historicalForm").addEventListener("submit",historicalLookup);
+
+
+async function runRiskLab(){
+  const box=$("analyticsMetrics"),button=$("runAnalytics");
+  button.disabled=true;
+  box.replaceChildren(node("div","Loading aligned daily history…"));
+  try{
+    const days=Number($("analyticsDays").value);
+    const response=await fetch("/api/analytics?days="+days,{cache:"no-store"});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||"Risk analytics unavailable");
+    const entries=[
+      ["STATUS",result.status],
+      ["BENCHMARK",result.benchmark],
+      ["ALIGNED DAILY RETURNS",String(result.aligned_observations)],
+      ["PERIOD",result.first_date+" → "+result.last_date],
+      ["PROXY BETA",result.beta_vs_benchmark===null?"—":String(result.beta_vs_benchmark)],
+      ["MAX DRAWDOWN",result.max_drawdown_pct+"%"],
+      ["PROXY VOLATILITY",result.proxy_portfolio.sample_daily_volatility_pct===undefined?"—":result.proxy_portfolio.sample_daily_volatility_pct+"% daily"],
+      ["BENCHMARK VOLATILITY",result.benchmark_stats.sample_daily_volatility_pct===undefined?"—":result.benchmark_stats.sample_daily_volatility_pct+"% daily"],
+      ["CORRELATION",JSON.stringify(result.correlation_to_benchmark)],
+      ["SECTOR EXPOSURE","UNCLASSIFIED"]
+    ];
+    box.replaceChildren();
+    for(const [label,value] of entries){const row=document.createElement("div");row.append(node("b",label),node("span",String(value)));box.append(row)}
+  }catch(error){box.replaceChildren(node("div",error.message))}
+  finally{button.disabled=false}
+}
+$("runAnalytics").addEventListener("click",runRiskLab);
