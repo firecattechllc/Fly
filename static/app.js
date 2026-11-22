@@ -179,6 +179,11 @@ document.querySelectorAll(".shock").forEach(b=>b.addEventListener("click",()=>{s
 $("order").addEventListener("submit",doOrder);
 $("quoteForm").addEventListener("submit",doQuotes);
 $("refresh").addEventListener("click",()=>refresh().catch(e=>{const m=$("message");m.textContent=e.message;m.className="form-message err"}));
+$("logout").addEventListener("click",async()=>{
+  const token=document.querySelector('meta[name="fly-token"]').content;
+  try{const res=await fetch("/api/auth/logout",{method:"POST",headers:{"Content-Type":"application/json","X-Fly-Token":token},body:"{}"});if(!res.ok)throw new Error("Sign out failed");location.replace("/auth")}
+  catch(e){alert(e.message)}
+});
 document.addEventListener("keydown",e=>{if(e.metaKey&&!e.shiftKey&&!e.altKey){const index=Number(e.key);if(index>=1&&index<=5){e.preventDefault();changeView(Object.keys(pages)[index-1])}}});
 updateClock();setInterval(updateClock,60000);
 refresh().catch(e=>{const m=$("message");m.className="form-message err";m.textContent=e.message});
