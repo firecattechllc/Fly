@@ -11,6 +11,17 @@ def render(report):
       "Benchmark TWR: "+str(report.get("benchmark_time_weighted_return_pct","—"))+"%",
       "Active return: "+str(report.get("active_return_pct","—"))+"%",
       "Maximum drawdown: "+str(report.get("max_drawdown_pct","—"))+"%",
+      "Portfolio annualized volatility: "+str(report.get("risk_metrics",{}).get("portfolio_annualized_volatility_pct","—"))+"%",
+      "Benchmark annualized volatility: "+str(report.get("risk_metrics",{}).get("benchmark_annualized_volatility_pct","—"))+"%",
+      "Annualized tracking error: "+str(report.get("risk_metrics",{}).get("annualized_tracking_error_pct","—"))+"%",
+      "Information ratio: "+str(report.get("risk_metrics",{}).get("information_ratio","—")),
+      "",
+      "PORTFOLIO TEAR SHEET",
+      "Opening equity cents: "+str(report.get("tear_sheet",{}).get("opening_equity_cents","—")),
+      "Ending equity cents: "+str(report.get("tear_sheet",{}).get("ending_equity_cents","—")),
+      "Ending cash cents: "+str(report.get("tear_sheet",{}).get("ending_cash_cents","—")),
+      "Ending market value cents: "+str(report.get("tear_sheet",{}).get("ending_market_value_cents","—")),
+      "Open positions: "+str(report.get("tear_sheet",{}).get("position_count","—")),
       "",
       "MONTHLY RETURNS"
     ]
