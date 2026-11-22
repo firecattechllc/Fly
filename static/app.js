@@ -412,3 +412,39 @@ document.querySelectorAll("#performanceRanges [data-range]").forEach(button=>but
  document.querySelectorAll("#performanceRanges [data-range]").forEach(b=>b.classList.toggle("active",b===button));
  renderBenchmarkChart();
 }));
+
+function addMetricRows(target,rows){
+ target.replaceChildren();
+ for(const [label,value] of rows){const row=node("div");row.append(node("b",label),node("span",String(value??"—")));target.append(row)}
+}
+async function runAdvancedAnalytics(){
+ const button=$("runAdvancedAnalytics"),days=$("advancedDays").value;
+ button.disabled=true;
+ addMetricRows($("advancedStatus"),[["STATUS","Loading read-only market history…"]]);
+ try{
+  const response=await fetch("/api/advanced-analytics?days="+encodeURIComponent(days),{cache:"no-store"});
+  const data=await response.json();
+  if(!response.ok||data.status!=="COMPUTED")throw new Error(data.error||data.message||data.status||"Quant research unavailable");
+  addMetricRows($("advancedStatus"),[["STATUS",data.status],["SAMPLE",data.first_date+" → "+data.last_date+" · "+data.aligned_observations+" aligned sessions"],["AS OF",data.as_of],["WEIGHTS",Object.entries(data.portfolio_weights_pct).map(([s,w])=>s+" "+w+"%").join(" · ")]]);
+  const reg=data.multi_factor_regression||{},regRows=[["REGRESSION STATUS",reg.status],["OBSERVATIONS",reg.observations],["R-SQUARED",reg.r_squared],["ADJUSTED R-SQUARED",reg.adjusted_r_squared],["RESIDUAL VOLATILITY",reg.residual_volatility_annualized_pct===undefined?"—":reg.residual_volatility_annualized_pct+"%"]];
+  for(const [name,v] of Object.entries(reg.coefficients||{}))regRows.push([name.toUpperCase(),v.beta===undefined?"Alpha "+(v.annualized_pct??"—")+"% · t "+(v.t_stat??"—"):"β "+v.beta+" · t "+(v.t_stat??"—")]);
+  addMetricRows($("advancedRegression"),regRows);
+  const rot=data.sector_rotation||{};
+  addMetricRows($("advancedRotation"),[["STATUS",rot.status],...(rot.sectors||[]).map(x=>["#"+x.rank_63d+" "+x.sector,x.return_21d_pct+"% / 21d · "+x.return_63d_pct+"% / 63d · "+x.return_252d_pct+"% / 252d"]),["LEADERS",(rot.leaders||[]).join(" · ")],["LAGGARDS",(rot.laggards||[]).join(" · ")]]);
+  const opt=data.optimization||{},front=[["STATUS",opt.status],["PORTFOLIOS EVALUATED",opt.portfolios_evaluated]];
+  for(const [label,item] of [["MINIMUM VARIANCE",opt.minimum_variance],["MAXIMUM SHARPE",opt.maximum_sharpe_zero_rf]])if(item)front.push([label,"Return "+item.expected_return_pct+"% · Vol "+item.volatility_pct+"% · Sharpe "+item.sharpe_zero_rf+" · "+Object.entries(item.weights).map(([s,w])=>s+" "+w+"%").join(" / ")]);
+  for(const item of opt.efficient_frontier||[])front.push(["FRONTIER "+item.expected_return_pct+"%", "Vol "+item.volatility_pct+"%"]);
+  addMetricRows($("advancedFrontier"),front);
+  const mc=data.monte_carlo||{},q=mc.ending_wealth_percentiles||{},dd=mc.maximum_drawdown_percentiles||{};
+  addMetricRows($("advancedMonteCarlo"),[["STATUS",mc.status],["PATHS / HORIZON",(mc.paths||0)+" / "+(mc.horizon_sessions||0)+" sessions"],["PROBABILITY OF LOSS",mc.probability_of_loss_pct+"%"],["ENDING WEALTH P05 / P50 / P95",[q.p05,q.p50,q.p95].join(" / ")],["MAX DRAWDOWN P50 / TAIL P05",[dd.p50,dd.p05].join(" / ")],["METHOD",mc.method]]);
+  const risk=data.risk_decomposition||{},riskRows=[["ANNUALIZED PORTFOLIO VOLATILITY",risk.annualized_portfolio_volatility_pct+"%"]];
+  for(const x of risk.contributions||[])riskRows.push([x.symbol,"Weight "+x.weight_pct+"% · variance share "+x.share_of_portfolio_variance_pct+"% · component vol "+x.component_volatility_pct+"%"]);
+  for(const x of (data.scenario_report?.scenarios||[]))riskRows.push([x.label,x.portfolio_return_proxy_pct+"% · hypothetical P&L "+money(x.hypothetical_pnl_cents)]);
+  riskRows.push(["LIMITATIONS",data.limitations]);
+  addMetricRows($("advancedRisk"),riskRows);
+ }catch(e){
+  for(const id of ["advancedRegression","advancedRotation","advancedFrontier","advancedMonteCarlo","advancedRisk"])addMetricRows($(id),[["STATUS",e.message]]);
+  addMetricRows($("advancedStatus"),[["STATUS","UNAVAILABLE"],["DETAIL",e.message]]);
+ }finally{button.disabled=false}
+}
+$("runAdvancedAnalytics").addEventListener("click",runAdvancedAnalytics);
