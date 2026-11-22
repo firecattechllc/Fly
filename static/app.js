@@ -326,4 +326,29 @@ async function runSimulation(){const box=$("intelligenceMetrics"),button=$("runS
 $("runSimulation").addEventListener("click",runSimulation);
 
 async function runMarketSimulation(){const box=$("intelligenceMetrics"),button=$("runMarketSimulation");button.disabled=true;box.replaceChildren(node("div","Loading aligned daily Alpaca bars and replaying paper transactions…"));try{const response=await fetch("/api/simulation/market",{cache:"no-store"}),data=await response.json();if(!response.ok)throw new Error(data.error||data.status||"Market replay unavailable");const rows=[["MARKET REPLAY",data.status],["OBSERVATIONS",String(data.observations||0)],["PERIOD",(data.first_date||"—")+" → "+(data.last_date||"—")],["DAILY TIME-WEIGHTED RETURN",data.daily_time_weighted_return_pct===undefined?"Not published":data.daily_time_weighted_return_pct+"%"],["MAX DRAWDOWN",data.max_drawdown_pct===undefined?"Not published":data.max_drawdown_pct+"%"],["METHOD",data.method||data.message||"—"],["LIMITATIONS",data.limitations||"—"]];box.replaceChildren();for(const [k,v] of rows){const row=document.createElement("div");row.append(node("b",k),node("span",String(v)));box.append(row)}}catch(e){box.replaceChildren(node("div",e.message))}finally{button.disabled=false}}
-$("runMarketSimulation").addEventListener("click",runMarketSimulation);
+
+
+async function renderExtendedPerformance(){
+ const box=$("intelligenceMetrics"),button=$("runMarketSimulation");button.disabled=true;
+ box.replaceChildren(node("div","Loading portfolio and SPY history…"));
+ try{
+  const response=await fetch("/api/simulation/market",{cache:"no-store"}),data=await response.json();
+  if(!response.ok)throw new Error(data.error||data.status||"Performance unavailable");
+  if(data.status!=="DAILY_MARKET_REPLAY")throw new Error(data.message||data.status||"No reconciled performance series");
+  box.replaceChildren();
+  const add=(label,value)=>{const row=node("div");row.append(node("b",label),node("span",String(value)));box.append(row)};
+  add("PORTFOLIO TWR",data.daily_time_weighted_return_pct+"%");
+  add("SPY TWR",data.benchmark_time_weighted_return_pct+"%");
+  add("ACTIVE RETURN",data.active_return_pct+"%");
+  add("MAX DRAWDOWN",data.max_drawdown_pct+"%");
+  add("SAMPLE",data.first_date+" → "+data.last_date+" · "+data.observations+" sessions");
+  add("MONTHLY RETURNS",data.monthly_returns.map(x=>x.period+": "+x.portfolio_return_pct+"% / SPY "+x.benchmark_return_pct+"%").join(" · ")||"None");
+  add("QUARTERLY RETURNS",data.quarterly_returns.map(x=>x.period+": "+x.portfolio_return_pct+"% / SPY "+x.benchmark_return_pct+"%").join(" · ")||"None");
+  add("CONTRIBUTION",data.contribution_attribution.map(x=>x.symbol+": "+x.contribution_pct_equity+"%").join(" · ")||"None");
+  const sc=data.scenario_comparison;
+  add("BEST 20-SESSION WINDOW",sc.best?sc.best.start+" → "+sc.best.end+" · "+sc.best.portfolio_return_pct+"% / SPY "+sc.best.benchmark_return_pct+"%":"Insufficient observations");
+  add("WORST 20-SESSION WINDOW",sc.worst?sc.worst.start+" → "+sc.worst.end+" · "+sc.worst.portfolio_return_pct+"% / SPY "+sc.worst.benchmark_return_pct+"%":"Insufficient observations");
+ }catch(e){box.replaceChildren(node("div",e.message))}
+ finally{button.disabled=false}
+}
+$("runMarketSimulation").addEventListener("click",renderExtendedPerformance);
