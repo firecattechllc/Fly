@@ -42,7 +42,7 @@ Do not activate a second account as authoritative until the approved data migrat
 
 ## Reality checks
 
-**FLY is an early paper-only prototype, not production-certified.** There is no user sign-in, provider-account reconciliation, historical returns engine, validated VaR, live portfolio valuations, secure remote UI exposure, full disaster recovery drill, or institutional certification. Local SQLite paper events are *not* tamper-evident. Hypothetical shock analysis does not predict real future market behavior.
+**FLY is an early paper-only prototype, not production-certified.** There is no multi-user identity system, provider-account reconciliation, historical returns engine, validated VaR, live portfolio valuations, secure remote UI exposure, full disaster recovery drill, or institutional certification. Local SQLite paper events are *not* tamper-evident. Hypothetical shock analysis does not predict real future market behavior.
 
 Keep local HTTP bound to `127.0.0.1`. Before any external exposure: implement authentication, TLS, session management, monitoring, privilege separation, security audit, and recovery tests. Before any real-money use: require explicit user approval, additional broker-specific controls, formal review, and separate deployment procedures. Public.com is not integrated.
 
@@ -70,3 +70,15 @@ Alpaca remains market-data only. Public is the intended actual brokerage path, b
 ## Release policy
 
 Do not expose the service beyond localhost, do not enable live order submission, and do not make the GitHub repository public during this preparation phase. Public release is the final step after production sign-off.
+
+## FLY owner login (local development)
+
+The localhost dashboard now requires an owner password. On the first visit to `http://127.0.0.1:8877/auth`, the owner creates a unique password with at least 14 characters. The password itself is never written to disk; a salted PBKDF2-SHA256 hash is stored in `data/owner-auth.json` with restrictive permissions. The file is excluded from Git.
+
+A successful login creates an 8-hour, memory-only, HttpOnly, SameSite=Strict session cookie. The browser UI uses a per-session CSRF token for simulated orders and logout. Five incorrect login attempts trigger a 15-minute per-IP lockout. Signing out or restarting the service invalidates the session. Static dashboard code and portfolio APIs require a valid session; the health endpoint and login assets are available without a session. The bootstrap flow is for a trusted owner at the Mac, not public internet hosting.
+
+**Important:** There is no self-service password recovery yet. Keep your owner password in a password manager. If it is lost, restoring access requires local operating-system access to reinitialize the development owner credentials; never delete owner-auth.json without first verifying you are on the correct host and have an approved recovery plan.
+
+For the mini Docker deployment, `FLY_AUTH_PATH=/data/owner-auth.json` keeps the owner hash with the persistent data mount. The database and authentication file must be backed up securely before migration; moving code via GitHub does not move identity or trading simulation data. Do not put an actual owner password, cookie, session token, or the authentication file in GitHub, screenshots, or chat.
+
+This is a meaningful local security improvement but is not a production-grade multi-user identity system. TLS, secure public access, stronger session governance, independent security review, and disaster recovery remain required before production sign-off.
