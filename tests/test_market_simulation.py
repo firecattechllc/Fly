@@ -50,4 +50,18 @@ class MarketSimulationTests(unittest.TestCase):
   self.assertEqual(r["status"],"DAILY_MARKET_REPLAY")
   self.assertIsNotNone(r["points"][-1]["rolling_20d_volatility_pct"])
   self.assertIsNotNone(r["points"][-1]["benchmark_rolling_20d_volatility_pct"])
+ def test_sector_factor_and_downside_metrics_are_published(self):
+  h={"AAPL":history([("2026-01-02",110),("2026-01-03",132),("2026-01-04",125.4)]),
+     "SPY":history([("2026-01-01",100),("2026-01-02",105),("2026-01-03",110),("2026-01-04",115)]),
+     "QQQ":history([("2026-01-01",100),("2026-01-02",104),("2026-01-03",112.32),("2026-01-04",117.936)])}
+  r=calculate(self.db,h)
+  self.assertEqual(r["status"],"DAILY_MARKET_REPLAY")
+  self.assertEqual(r["sector_exposure"]["sectors"][0]["sector"],"Information Technology")
+  self.assertEqual(r["sector_contribution"][0]["sector"],"Information Technology")
+  self.assertEqual(r["factor_exposures"][0]["symbol"],"QQQ")
+  self.assertGreater(r["factor_exposures"][0]["beta"],0)
+  self.assertIsNotNone(r["risk_metrics"]["sharpe_ratio_zero_rf"])
+  self.assertIsNotNone(r["risk_metrics"]["sortino_ratio_zero_mar"])
+  self.assertEqual(r["risk_metrics"]["risk_free_rate_assumption_pct"],0.0)
+
 if __name__=='__main__':unittest.main()
