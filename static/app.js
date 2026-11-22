@@ -321,3 +321,6 @@ async function loadIntelligence(){
  finally{button.disabled=false}
 }
 $("loadIntelligence").addEventListener("click",loadIntelligence);
+
+async function runSimulation(){const box=$("intelligenceMetrics"),button=$("runSimulation");button.disabled=true;try{const response=await fetch("/api/simulation",{cache:"no-store"}),data=await response.json();if(!response.ok)throw new Error(data.error||"Replay unavailable");const rows=[["SIMULATION REPLAY",data.status],["BASELINE UTC",data.baseline_utc||"—"],["OBSERVATIONS",String(data.observations||0)],["BASELINE EQUITY",data.baseline_equity_cents===undefined?"—":"$"+(data.baseline_equity_cents/100).toFixed(2)],["CURRENT REPLAY EQUITY",data.current_equity_cents===undefined?"—":"$"+(data.current_equity_cents/100).toFixed(2)],["CHANGE",data.equity_change_pct===undefined?"Not published":""+data.equity_change_pct+"%"],["METHOD",data.method||data.message||"—"]];box.replaceChildren();for(const [k,v] of rows){const row=document.createElement("div");row.append(node("b",k),node("span",v));box.append(row)}}catch(e){box.replaceChildren(node("div",e.message))}finally{button.disabled=false}}
+$("runSimulation").addEventListener("click",runSimulation);
