@@ -115,14 +115,27 @@ def end_session(headers):
 def allowed_login(ip):
     now = time.monotonic()
     with LOCK:
-        attempts = [x for x in FAILED.get(ip, []) if now - x < 900]
-        FAILED[ip] = attempts
-        return len(attempts) < 5
+        # Expire stale buckets and bound memory against arbitrary source IPs.
+        for address, attempts in list(FAILED.items()):
+            recent = [stamp for stamp in attempts if now - stamp < 900]
+            if recent:
+                FAILED[address] = recent
+            else:
+                FAILED.pop(address, None)
+        if ip not in FAILED and len(FAILED) >= 256:
+            return False
+        return len(FAILED.get(ip, [])) < 5
 
 
 def record_failed_login(ip):
     with LOCK:
-        FAILED.setdefault(ip, []).append(time.monotonic())
+        now = time.monotonic()
+        if ip not in FAILED and len(FAILED) >= 256:
+            return
+        attempts = FAILED.setdefault(ip, [])
+        attempts[:] = [stamp for stamp in attempts if now - stamp < 900]
+        if len(attempts) < 5:
+            attempts.append(now)
 
 
 def reset_failed_login(ip):
