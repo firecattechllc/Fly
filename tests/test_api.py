@@ -72,7 +72,7 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertEqual(status,401)
         status,_,_=self.request("GET","/api/performance")
         self.assertEqual(status,401)
-        for endpoint in ("/api/historical?symbol=SPY&days=30", "/api/research?symbol=SPY&days=30", "/api/analytics?days=90", "/api/intelligence", "/api/report.csv"):
+        for endpoint in ("/api/historical?symbol=SPY&days=30", "/api/research?symbol=SPY&days=30", "/api/analytics?days=90", "/api/intelligence", "/api/report.csv", "/api/simulation"):
             status,_,_=self.request("GET",endpoint)
             self.assertEqual(status,401)
         status,_,_=self.request("GET","/app.js")
