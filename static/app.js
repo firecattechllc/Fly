@@ -215,3 +215,58 @@ document.addEventListener("keydown",e=>{if(e.metaKey&&!e.shiftKey&&!e.altKey){co
 updateClock();setInterval(updateClock,60000);
 refresh().catch(e=>{const m=$("message");m.className="form-message err";m.textContent=e.message});
 setInterval(()=>{if(document.visibilityState==="visible")refresh().catch(()=>{})},30000);
+
+const currency=v=>Number.isFinite(v)?v.toLocaleString("en-US",{style:"currency",currency:"USD"}):"—";
+function renderMarketLine(bars){
+  const root=$("marketChart");root.replaceChildren();
+  $("marketEmpty").hidden=bars.length>1;
+  if(!bars.length)return;
+  $("marketFirst").textContent="FIRST "+currency(bars[0].close);
+  $("marketLatest").textContent="LATEST "+currency(bars[bars.length-1].close);
+  const change=(bars[bars.length-1].close/bars[0].close-1)*100;
+  $("marketChange").textContent="CHANGE "+change.toFixed(2)+"% (raw)";
+  if(bars.length<2)return;
+  const values=bars.map(b=>b.close),min=Math.min(...values),max=Math.max(...values),range=Math.max(max-min,.000001);
+  const coords=bars.map((b,i)=>[20+960*i/(bars.length-1),138-(b.close-min)*116/range]);
+  const ns="http://www.w3.org/2000/svg";
+  const svg=(name,attrs)=>{const el=document.createElementNS(ns,name);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));return el};
+  for(const y of [22,80,138])root.append(svg("line",{x1:20,x2:980,y1:y,y2:y,stroke:"#25394d"}));
+  const d=coords.map((p,i)=>(i?"L":"M")+p[0].toFixed(2)+","+p[1].toFixed(2)).join(" ");
+  root.append(svg("path",{d:d+" L980,145 L20,145 Z",fill:"#769fff","fill-opacity":".08"}));
+  root.append(svg("path",{d,fill:"none",stroke:"#769fff","stroke-width":2.8,"stroke-linejoin":"round","stroke-linecap":"round"}));
+}
+function displayResearch(r){
+  const box=$("researchMetrics");box.replaceChildren();
+  const lines=[
+    ["DATA","Alpaca "+r.feed.toUpperCase()+" · "+r.observations+" daily bars"],
+    ["CLOSE",r.latest_close===undefined?"Not enough data":currency(r.latest_close)],
+    ["OBSERVED CHANGE",r.observed_change_pct===undefined?"—":r.observed_change_pct.toFixed(2)+"% (unadjusted)"],
+    ["20-DAY AVERAGE",r.sma20===null||r.sma20===undefined?"Insufficient history":currency(r.sma20)],
+    ["50-DAY AVERAGE",r.sma50===null||r.sma50===undefined?"Insufficient history":currency(r.sma50)],
+    ["ANNUALIZED VOLATILITY",r.sample_annualized_volatility_pct===undefined||r.sample_annualized_volatility_pct===null?"Insufficient history":r.sample_annualized_volatility_pct.toFixed(2)+"% · sample only"],
+    ["MODEL", "Deterministic descriptive stats · no AI or forecasts"],
+  ];
+  for(const [label,value] of lines){const line=document.createElement("div");line.append(node("b",label),node("span",value));box.append(line)}
+}
+async function historicalLookup(e){
+  e.preventDefault();
+  const target=$("historicalMessage"),symbol=$("historySymbol").value.trim().toUpperCase(),days=Number($("historyDays").value);
+  if(!/^[A-Z][A-Z0-9.]{0,9}$/.test(symbol)||![30,90,180,365].includes(days)){
+    target.textContent="Enter a valid stock symbol and period.";target.className="form-message err";return;
+  }
+  target.textContent="Requesting read-only Alpaca daily bars…";target.className="form-message";
+  try{
+    const qs="?symbol="+encodeURIComponent(symbol)+"&days="+days+"&feed=iex";
+    const [barsResponse,metricsResponse]=await Promise.all([
+      fetch("/api/historical"+qs,{cache:"no-store"}),
+      fetch("/api/research"+qs,{cache:"no-store"})
+    ]);
+    const [bars,metrics]=await Promise.all([barsResponse.json(),metricsResponse.json()]);
+    if(!barsResponse.ok||!metricsResponse.ok)throw new Error(bars.error||metrics.error||"Historical feed unavailable");
+    renderMarketLine(bars.bars);
+    displayResearch(metrics);
+    target.textContent=bars.bars.length+" Alpaca IEX daily bars · raw, unadjusted · information only, no trading.";
+    target.className="form-message ok";
+  }catch(err){target.textContent=err.message;target.className="form-message err"}
+}
+$("historicalForm").addEventListener("submit",historicalLookup);
