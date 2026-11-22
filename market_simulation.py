@@ -119,12 +119,57 @@ def calculate(db, histories, benchmark="SPY"):
     for point in points:
         growth*=1+point["daily_return_pct"]/100; peak=max(peak,growth); max_drawdown=min(max_drawdown,growth/peak-1)
     contributions=[{"symbol":s,"contribution_cents":round(v),"contribution_pct_equity":round(v/baseline_equity*100,4)} for s,v in sorted(contribution_cents.items())]
+    import math
+    portfolio_daily=[p["daily_return_pct"]/100 for p in points]
+    benchmark_daily=[p["benchmark_return_pct"]/100 for p in points]
+    active_daily=[a-b for a,b in zip(portfolio_daily,benchmark_daily)]
+    def sample_std(values):
+        if len(values)<2:return None
+        mean=sum(values)/len(values)
+        return math.sqrt(sum((x-mean)**2 for x in values)/(len(values)-1))
+    def annualized_vol(values):
+        value=sample_std(values)
+        return round(value*math.sqrt(252)*100,4) if value is not None else None
+    def rolling_vol(values,window=20):
+        out=[]
+        for i in range(len(values)):
+            sample=values[max(0,i-window+1):i+1]
+            vol=annualized_vol(sample) if len(sample)>=window else None
+            out.append(vol)
+        return out
+    pvol=annualized_vol(portfolio_daily); bvol=annualized_vol(benchmark_daily)
+    te=annualized_vol(active_daily)
+    mean_active=sum(active_daily)/len(active_daily) if active_daily else 0
+    ir=round(mean_active/(sample_std(active_daily))*math.sqrt(252),4) if sample_std(active_daily) not in (None,0) else None
+    rolling_p=rolling_vol(portfolio_daily); rolling_b=rolling_vol(benchmark_daily)
+    for i,point in enumerate(points):
+        point["rolling_20d_volatility_pct"]=rolling_p[i]
+        point["benchmark_rolling_20d_volatility_pct"]=rolling_b[i]
+    risk_metrics={"portfolio_annualized_volatility_pct":pvol,
+                  "benchmark_annualized_volatility_pct":bvol,
+                  "annualized_tracking_error_pct":te,
+                  "information_ratio":ir,
+                  "volatility_window_sessions":20,
+                  "volatility_method":"Sample standard deviation of daily simple returns × sqrt(252); rolling metric requires 20 observations."}
+    tear_sheet={"period_start":points[0]["date"],"period_end":points[-1]["date"],
+                "portfolio_twr_pct":round(portfolio_return*100,4),
+                "benchmark_twr_pct":round(benchmark_return*100,4),
+                "active_return_pct":round((portfolio_return-benchmark_return)*100,4),
+                "max_drawdown_pct":round(max_drawdown*100,4),
+                "portfolio_annualized_volatility_pct":pvol,
+                "benchmark_annualized_volatility_pct":bvol,
+                "tracking_error_pct":te,"information_ratio":ir,
+                "opening_equity_cents":baseline_equity,"ending_equity_cents":equity,
+                "ending_cash_cents":cash,"ending_market_value_cents":market_value,
+                "position_count":sum(1 for h in holdings.values() if h["qty"]>0),
+                "attribution":contributions}
     return {"status":"DAILY_MARKET_REPLAY","benchmark":benchmark,"baseline_utc":base["created_utc"],
             "first_date":points[0]["date"],"last_date":points[-1]["date"],"observations":len(points),
             "daily_time_weighted_return_pct":round(portfolio_return*100,4),
             "benchmark_time_weighted_return_pct":round(benchmark_return*100,4),
             "active_return_pct":round((portfolio_return-benchmark_return)*100,4),
-            "max_drawdown_pct":round(max_drawdown*100,4),"monthly_returns":_periods(points,"month"),
+            "max_drawdown_pct":round(max_drawdown*100,4),"risk_metrics":risk_metrics,"tear_sheet":tear_sheet,
+            "monthly_returns":_periods(points,"month"),
             "quarterly_returns":_periods(points,"quarter"),"contribution_attribution":contributions,
             "scenario_comparison":_scenarios(points),"points":points,
             "method":"Daily close-to-close paper NAV, external cash flows excluded, chained daily returns. Benchmark uses the same aligned sessions.",
