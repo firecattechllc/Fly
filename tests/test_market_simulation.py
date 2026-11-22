@@ -30,6 +30,9 @@ class MarketSimulationTests(unittest.TestCase):
   self.assertEqual(len(r['quarterly_returns']),1)
   self.assertEqual(r['contribution_attribution'][0]['symbol'],'AAPL')
   self.assertEqual(r['scenario_comparison']['status'],'INSUFFICIENT_DATA')
+  self.assertIsNotNone(r['risk_metrics']['portfolio_annualized_volatility_pct'])
+  self.assertIsNone(r['points'][-1]['rolling_20d_volatility_pct'])
+  self.assertEqual(r['tear_sheet']['position_count'],1)
  def test_missing_symbol_fails_closed(self):
   r=calculate(self.db,{'AAPL':history([('2026-01-02',110)])})
   self.assertEqual(r['status'],'MISSING_SYMBOL_HISTORY')
@@ -37,4 +40,14 @@ class MarketSimulationTests(unittest.TestCase):
   self.db.execute('UPDATE account SET cash=500')
   r=calculate(self.db,{'AAPL':history([('2026-01-02',110)]),'SPY':history([('2026-01-01',100),('2026-01-02',105)])})
   self.assertEqual(r['status'],'RECONCILIATION_REQUIRED')
+ def test_rolling_volatility_requires_and_uses_twenty_sessions(self):
+  from datetime import date,timedelta
+  days=[(date(2026,1,1)+timedelta(days=i)).isoformat() for i in range(22)]
+  aapl=[{"timestamp":d+"T21:00:00Z","close":100+i} for i,d in enumerate(days[1:])]
+  spy=[{"timestamp":d+"T21:00:00Z","close":100+i*0.4} for i,d in enumerate(days)]
+  self.db.execute("UPDATE positions SET last_cents=12000 WHERE symbol='AAPL'")
+  r=calculate(self.db,{"AAPL":{"bars":aapl},"SPY":{"bars":spy}})
+  self.assertEqual(r["status"],"DAILY_MARKET_REPLAY")
+  self.assertIsNotNone(r["points"][-1]["rolling_20d_volatility_pct"])
+  self.assertIsNotNone(r["points"][-1]["benchmark_rolling_20d_volatility_pct"])
 if __name__=='__main__':unittest.main()
