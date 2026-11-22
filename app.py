@@ -12,6 +12,7 @@ from urllib.parse import urlparse, parse_qs
 from market_data import MarketDataError, configured as alpaca_configured, get_quotes
 from risk import calculate as calculate_risk
 from historical import get_bars as alpaca_bars, research as historical_research
+from market_cache import MARKET_CACHE
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 import auth
 
@@ -248,7 +249,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 days = int(query.get("days", ["90"])[0])
                 feed = query.get("feed", ["iex"])[0]
-                bars = alpaca_bars(symbol, days, feed)
+                bars = MARKET_CACHE.get(("bars", symbol, days, feed), 300,
+                                        lambda: alpaca_bars(symbol, days, feed))
                 self.respond(200, bars if path == "/api/historical" else historical_research(bars))
             except (ValueError, MarketDataError) as exc:
                 self.respond(503 if isinstance(exc, MarketDataError) else 400,
@@ -258,7 +260,9 @@ class Handler(BaseHTTPRequestHandler):
             symbols = query.get("symbols", [""])[0].upper().split(",")
             feed = query.get("feed", ["iex"])[0]
             try:
-                self.respond(200, get_quotes(symbols, feed))
+                self.respond(200, MARKET_CACHE.get(
+                    ("quotes", tuple(sorted(symbols)), feed), 15,
+                    lambda: get_quotes(symbols, feed)))
             except MarketDataError as exc:
                 self.respond(503, {"error": str(exc), "read_only": True})
         elif path == "/healthz":
