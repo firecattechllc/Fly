@@ -11,11 +11,11 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from market_data import MarketDataError, configured as alpaca_configured, get_quotes
 from risk import calculate as calculate_risk
+import auth
 
 os.umask(0o077)  # Restrict SQLite and log files to the hosting user
 DB = Path(os.environ.get("FLY_DB", str(Path(__file__).parent / "data" / "paper.db")))
 PUBLIC = Path(__file__).parent / "static" / "index.html"
-TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.RLock()
 STARTING_CASH = 10000000  # cents; simulated $100k
 MAX_ORDER_BPS = 1000  # 10% of equity
@@ -126,12 +126,65 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def auth_response(self, status, payload, cookie=None):
+        raw = json.dumps(payload, separators=(",", ":")).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def serve_public_asset(self, name, mime, csp=None):
+        raw = (PUBLIC.parent / name).read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if csp:
+            self.send_header("Content-Security-Policy", csp)
+        self.end_headers()
+        self.wfile.write(raw)
+
     def do_GET(self):
         if self.headers.get("Host", "").split(":")[0].lower() not in ("127.0.0.1", "localhost"):
             return self.respond(403, {"error":"Localhost access only"})
         path = urlparse(self.path).path
+        if path == "/style.css":
+            return self.serve_public_asset("style.css", "text/css; charset=utf-8")
+        if path == "/auth.js":
+            return self.serve_public_asset("auth.js", "text/javascript; charset=utf-8")
+        if path == "/auth":
+            return self.serve_public_asset("auth.html", "text/html; charset=utf-8",
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'")
+        session = auth.session_for(self.headers)
+        if path == "/api/auth/status":
+            return self.respond(200, {"configured": auth.is_configured(), "authenticated": bool(session)})
+        if path == "/healthz":
+            try:
+                with connection() as db:
+                    check = db.execute("PRAGMA quick_check").fetchone()[0]
+                if check != "ok":
+                    return self.respond(503, {"status": "unhealthy", "mode": "paper"})
+                return self.respond(200, {"status": "ok", "mode": "paper", "database": "ok"})
+            except sqlite3.Error:
+                return self.respond(503, {"status": "unhealthy", "mode": "paper", "database": "unavailable"})
+        if not session:
+            if path == "/":
+                self.send_response(302)
+                self.send_header("Location", "/auth")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return
+            return self.respond(401, {"error": "Owner authentication required"})
         if path == "/":
-            html = PUBLIC.read_text(encoding="utf-8").replace("__TOKEN__", TOKEN).encode()
+            html = PUBLIC.read_text(encoding="utf-8").replace("__TOKEN__", session["csrf"]).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(html)))
@@ -201,14 +254,52 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.headers.get("Host", "").split(":")[0].lower() not in ("127.0.0.1", "localhost"):
             return self.respond(403, {"error":"Localhost access only"})
-        if urlparse(self.path).path != "/api/paper-orders":
-            return self.respond(404, {"error": "Not found"})
         origin = self.headers.get("Origin")
         host = self.headers.get("Host", "")
         if origin and origin != "http://" + host:
             return self.respond(403, {"error": "Invalid Origin"})
-        if self.headers.get("X-Fly-Token") != TOKEN:
-            return self.respond(403, {"error": "Invalid token"})
+        path = urlparse(self.path).path
+        if path in ("/api/auth/setup", "/api/auth/login", "/api/auth/logout"):
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                return self.respond(415, {"error":"Expected application/json"})
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                if not 1 <= n <= 4096:
+                    return self.respond(413, {"error":"Invalid request size"})
+                payload = json.loads(self.rfile.read(n))
+                if not isinstance(payload, dict):
+                    raise ValueError("Expected JSON object")
+            except (ValueError, json.JSONDecodeError):
+                return self.respond(400, {"error":"Invalid JSON request"})
+            if path == "/api/auth/setup":
+                try:
+                    sid = auth.create_owner(payload.get("password"))
+                    return self.auth_response(200, {"authenticated": True},
+                                              auth.cookie_header(sid))
+                except ValueError as exc:
+                    return self.respond(400, {"error":str(exc)})
+            if path == "/api/auth/login":
+                ip = self.client_address[0]
+                if not auth.allowed_login(ip):
+                    return self.respond(429, {"error":"Too many attempts. Try later."})
+                if not auth.verify_password(payload.get("password")):
+                    auth.record_failed_login(ip)
+                    return self.respond(401, {"error":"Invalid owner credentials"})
+                auth.reset_failed_login(ip)
+                sid = auth.make_session()
+                return self.auth_response(200, {"authenticated":True}, auth.cookie_header(sid))
+            session = auth.session_for(self.headers)
+            if not session or self.headers.get("X-Fly-Token") != session["csrf"]:
+                return self.respond(403, {"error":"Invalid session or CSRF token"})
+            auth.end_session(self.headers)
+            return self.auth_response(200, {"authenticated":False}, auth.expire_cookie_header())
+        if path != "/api/paper-orders":
+            return self.respond(404, {"error": "Not found"})
+        session = auth.session_for(self.headers)
+        if not session:
+            return self.respond(401, {"error":"Owner authentication required"})
+        if self.headers.get("X-Fly-Token") != session["csrf"]:
+            return self.respond(403, {"error": "Invalid CSRF token"})
         if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
             return self.respond(415, {"error": "Expected application/json"})
         try:
