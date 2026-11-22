@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from market_data import MarketDataError, configured as alpaca_configured, get_quotes
 from risk import calculate as calculate_risk
+from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 import auth
 
 os.umask(0o077)  # Restrict SQLite and log files to the hosting user
@@ -32,6 +33,7 @@ def connection():
     db.execute("CREATE TABLE IF NOT EXISTS positions (symbol TEXT PRIMARY KEY, qty INTEGER NOT NULL CHECK(qty >= 0), last_cents INTEGER NOT NULL CHECK(last_cents > 0))")
     db.execute("CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, kind TEXT NOT NULL, payload TEXT NOT NULL)")
     db.execute("INSERT OR IGNORE INTO account(id,cash) VALUES (1,?)", (STARTING_CASH,))
+    ensure_marks(db)
     db.commit()
     return db
 
@@ -102,6 +104,7 @@ def trade(payload):
                     db.execute("DELETE FROM positions WHERE symbol=?", (symbol,))
             event = {"symbol": symbol, "side": side, "qty": qty, "hypothetical_price_cents": price, "notional_cents": amount}
             db.execute("INSERT INTO events(kind,payload) VALUES(?,?)", ("PAPER_ORDER", json.dumps(event, sort_keys=True)))
+            record_mark(db, "PAPER_ORDER")
             db.commit()
             return snapshot(db)
         except Exception:
@@ -217,6 +220,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
             self.end_headers()
             self.wfile.write(css)
+        elif path == "/api/performance":
+            with LOCK:
+                db = connection()
+                try:
+                    self.respond(200, mark_history(db))
+                finally:
+                    db.close()
         elif path == "/api/risk":
             with LOCK:
                 db = connection()
