@@ -82,3 +82,9 @@ A successful login creates an 8-hour, memory-only, HttpOnly, SameSite=Strict ses
 For the mini Docker deployment, `FLY_AUTH_PATH=/data/owner-auth.json` keeps the owner hash with the persistent data mount. The database and authentication file must be backed up securely before migration; moving code via GitHub does not move identity or trading simulation data. Do not put an actual owner password, cookie, session token, or the authentication file in GitHub, screenshots, or chat.
 
 This is a meaningful local security improvement but is not a production-grade multi-user identity system. TLS, secure public access, stronger session governance, independent security review, and disaster recovery remain required before production sign-off.
+
+## Owner and portfolio recovery pair
+
+The daily `backup.py` job now creates two paired files in `~/FLY-Backups`: `fly-<timestamp>.sqlite3` (the paper portfolio) and `fly-<timestamp>.owner-auth.json` (the salted owner password verifier). Both use mode `0600` under a private mode `0700` backup directory. The owner verifier is sensitive security material even though it does not contain the plaintext password; never upload it to GitHub or share it publicly. Local backups are not encrypted or off-device disaster recovery.
+
+Run `python3 recovery_check.py` to inspect the latest paired backup without altering the live application. This checks SQLite integrity, presence of portfolio tables, owner-record shape, and permissions. It does not test a full system restoration or prove that the user's actual password works after migration. For disaster recovery, an encrypted off-device copy and an isolated end-to-end restore/login drill are still required.
