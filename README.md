@@ -106,3 +106,11 @@ The release image runs as unprivileged UID 10001 with a read-only root filesyste
 ## Alpaca market-data connection
 
 The HTTP adapter can request IEX/delayed-SIP stock quotes using just-in-time macOS Keychain credentials, but no accessible Air Keychain entries have been verified. Do not place credentials into GitHub issues, public source files, environment configuration in GitHub, or chat. Provider connectivity must be confirmed explicitly before the UI labels it operational. FLY never uses market quotes to execute real orders.
+
+## Historical stock bars and research panel
+
+The owner-authenticated Market Monitor now supports `GET /api/historical?symbol=SPY&days=90&feed=iex` for daily OHLCV bars and `GET /api/research?symbol=SPY&days=90&feed=iex` for derived, reproducible market statistics. Both are **read-only** and require the server's own Alpaca market-data credentials. The Mac's Keychain credentials are still missing or inaccessible; the connected ChatGPT Alpaca app credentials are not transferred into the local FLY service.
+
+Inputs are restricted to one valid US equity symbol, IEX/delayed SIP, a 5–365 calendar-day lookback, and up to 400 daily bars per response. The server uses Alpaca's HTTPS market-data endpoint with a 20-minute freshness cutoff to avoid requesting data too recent for delayed feeds. The broker account, portfolio valuation, and paper order execution remain completely separate. A missing provider credential fails closed; no fabricated sample prices are displayed as live data.
+
+The research panel computes **unadjusted historical close-to-close change**, 20/50-observation simple moving averages, and sample annualized close-to-close volatility. These are descriptive, may be biased by a limited single-exchange feed, and ignore dividends and corporate-action adjustments. No strategy signals, AI model, price forecasts, personalized recommendations, or real-money trading are active. A future AI narrative service requires its own model security, data quality checks, audit policy, and user approval before activation.
