@@ -1,6 +1,6 @@
 FROM python:3.12-alpine
 WORKDIR /app
-COPY app.py market_data.py risk.py /app/
+COPY app.py auth.py market_data.py risk.py /app/
 COPY static /app/static
 ENV PYTHONUNBUFFERED=1 FLY_DB=/data/paper.db FLY_HOST=0.0.0.0
 EXPOSE 8877
