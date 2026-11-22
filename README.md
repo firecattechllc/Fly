@@ -57,9 +57,9 @@ python3 -m py_compile app.py risk.py market_data.py backup.py
 © 2026 FLY contributors. MIT License.
 
 
-## Private production-preparation phase
+## Public source / preproduction development
 
-The GitHub repository is intentionally **private**. Public open-source release is a final milestone only after production-readiness review, security review, provider validation, recovery testing, and owner approval. Do not change repository visibility before that approval.
+The owner has elected to make the GitHub repository **public** before production certification. Source code is available under the MIT license, but the running application is still an experimental local development build. Do not publish or commit any credentials, account records, owner-authentication files, session tokens, or SQLite backups.
 
 ## Alpaca credential handling on macOS
 
@@ -69,7 +69,7 @@ Alpaca remains market-data only. Public is the intended actual brokerage path, b
 
 ## Release policy
 
-Do not expose the service beyond localhost, do not enable live order submission, and do not make the GitHub repository public during this preparation phase. Public release is the final step after production sign-off.
+Do not expose the service beyond localhost or enable live order submission during development. Public source availability does **not** mean FLY is production-certified or approved for real-money trading.
 
 ## FLY owner login (local development)
 
