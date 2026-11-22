@@ -18,6 +18,7 @@ from portfolio_intelligence import report as intelligence_report
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 from simulation import ensure_baseline, replay as replay_simulation
 from market_simulation import calculate as calculate_market_simulation
+from advanced_analytics import analyze as calculate_advanced_analytics
 from pdf_report import render as render_pdf_report
 import auth
 
@@ -354,6 +355,40 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(200, snapshot(db))
                 finally:
                     db.close()
+        elif path == "/api/advanced-analytics":
+            query = parse_qs(urlparse(self.path).query)
+            try:
+                days = int(query.get("days", ["365"])[0])
+                if days not in (90, 180, 365):
+                    raise ValueError("Advanced analytics lookback must be 90, 180 or 365 days")
+                with LOCK:
+                    db=connection()
+                    try:
+                        positions=[p for p in snapshot(db)["positions"] if p["qty"]>0]
+                    finally:
+                        db.close()
+                if not positions:
+                    self.respond(200,{"status":"INSUFFICIENT_DATA","message":"Add paper holdings before running advanced analytics."}); return
+                if len(positions)>10:
+                    raise ValueError("Advanced analytics supports at most 10 holdings")
+                from advanced_analytics import FACTOR_LABELS, SECTOR_ETFS
+                required={p["symbol"] for p in positions}
+                optional=set(FACTOR_LABELS)|set(SECTOR_ETFS)
+                histories={}
+                for symbol in sorted(required):
+                    histories[symbol]=MARKET_CACHE.get(("bars",symbol,days,"iex"),300,
+                        lambda symbol=symbol:alpaca_bars(symbol,days,"iex"))
+                for symbol in sorted(optional-required):
+                    try:
+                        histories[symbol]=MARKET_CACHE.get(("bars",symbol,days,"iex"),300,
+                            lambda symbol=symbol:alpaca_bars(symbol,days,"iex"))
+                    except MarketDataError:
+                        pass
+                result=calculate_advanced_analytics(positions,histories,days=days)
+                self.respond(200,result)
+            except (ValueError,MarketDataError) as exc:
+                self.respond(503 if isinstance(exc,MarketDataError) else 400,
+                    {"error":str(exc),"read_only":True})
         elif path == "/api/analytics":
             query = parse_qs(urlparse(self.path).query)
             try:
