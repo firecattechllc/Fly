@@ -13,6 +13,7 @@ from market_data import MarketDataError, configured as alpaca_configured, get_qu
 from risk import calculate as calculate_risk
 from historical import get_bars as alpaca_bars, research as historical_research
 from market_cache import MARKET_CACHE
+from analytics import calculate as calculate_analytics
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 import auth
 
@@ -243,6 +244,30 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(200, snapshot(db))
                 finally:
                     db.close()
+        elif path == "/api/analytics":
+            query = parse_qs(urlparse(self.path).query)
+            try:
+                days = int(query.get("days", ["90"])[0])
+                if type(days) is not int or not 30 <= days <= 365:
+                    raise ValueError("Analytics lookback must be 30-365 days")
+                with LOCK:
+                    db = connection()
+                    try:
+                        positions = snapshot(db)["positions"]
+                    finally:
+                        db.close()
+                if len(positions) > 10:
+                    raise ValueError("Analytics currently supports at most 10 holdings")
+                symbols = sorted({p["symbol"] for p in positions} | {"SPY"})
+                histories = {}
+                for symbol in symbols:
+                    histories[symbol] = MARKET_CACHE.get(
+                        ("bars", symbol, days, "iex"), 300,
+                        lambda symbol=symbol: alpaca_bars(symbol, days, "iex"))
+                self.respond(200, calculate_analytics(positions, histories))
+            except (ValueError, MarketDataError) as exc:
+                self.respond(503 if isinstance(exc, MarketDataError) else 400,
+                             {"error": str(exc) if isinstance(exc, MarketDataError) else "Invalid analytics request", "read_only": True})
         elif path in ("/api/historical", "/api/research"):
             query = parse_qs(urlparse(self.path).query)
             symbol = query.get("symbol", ["SPY"])[0].upper()
