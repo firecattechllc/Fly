@@ -137,3 +137,7 @@ Authenticated `GET /api/analytics?days=90` loads read-only Alpaca IEX daily bars
 ## Dated transaction replay
 
 The database now captures a one-time opening snapshot of cash and manually marked holdings in `simulation_baseline`. The authenticated `GET /api/simulation` endpoint replays subsequent paper transactions in chronological order and checks replayed cash, quantities and marks against the current account. It withholds return figures when reconciliation fails. This is an event-based simulator replay using transaction prices and last transaction marks, not a daily market-price backtest or time-weighted performance series. Opening positions have unknown pre-baseline cost basis; no historic trades are fabricated.
+
+## Daily market-valued paper simulation
+
+Authenticated `GET /api/simulation/market` requests up to 365 days of Alpaca IEX daily bars for every symbol in the opening snapshot and transaction ledger. It builds a daily close-valued account equity series, chains daily returns, and reports maximum drawdown only after cash and share quantities reconcile to the current paper account. Missing symbols, missing common sessions, or inconsistent accounting fail closed. This is an approximate event-date simulation: trades are applied on their recorded UTC date; no external deposits or withdrawals are modeled. Raw bars omit dividend/corporate-action adjustments and IEX is single-exchange coverage. Not audited performance or investment advice.
