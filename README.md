@@ -118,3 +118,9 @@ The research panel computes **unadjusted historical close-to-close change**, 20/
 ## Read-only market data request budget
 
 Authenticated historical OHLCV and research requests share a bounded, in-memory cache: at most **64 symbol/feed/lookback records** with five-minute time-to-live. The latest-quote monitor uses a separate key namespace and a 15-second TTL. Repeated UI requests return copies; callers cannot mutate cached objects, unsuccessful provider requests are not cached, and the cache disappears when the process restarts. This reduces duplicate provider traffic but **does not** guarantee data freshness at trade time and must not be used to automate orders. The historical/research endpoints remain distinct from paper portfolio marks and never trigger brokerage execution. A production upstream quota policy and instrumentation are still outstanding.
+
+## Historical portfolio risk lab
+
+Authenticated `GET /api/analytics?days=90` loads read-only Alpaca IEX daily bars for each current paper holding plus SPY, then aligns daily returns by date. The lookback is limited to 30–365 calendar days and current holdings to 10 symbols. It reports current-weight proxy daily volatility, benchmark beta, maximum drawdown, and holding-to-SPY correlations.
+
+**Important methodology limitation:** today's paper holding weights are held constant across the entire historical sample. This is not a reconstruction of historical positions, a true portfolio backtest, or a forecast. Returns use raw unadjusted close prices, ignore dividends/corporate actions and may be incomplete because IEX is a single-exchange feed. No risk number is represented as VaR. Sector exposure remains explicitly unclassified because no verified sector taxonomy is connected. No live orders are possible.
