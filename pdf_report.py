@@ -15,6 +15,9 @@ def render(report):
       "Benchmark annualized volatility: "+str(report.get("risk_metrics",{}).get("benchmark_annualized_volatility_pct","—"))+"%",
       "Annualized tracking error: "+str(report.get("risk_metrics",{}).get("annualized_tracking_error_pct","—"))+"%",
       "Information ratio: "+str(report.get("risk_metrics",{}).get("information_ratio","—")),
+      "Sharpe ratio (zero risk-free proxy): "+str(report.get("risk_metrics",{}).get("sharpe_ratio_zero_rf","—")),
+      "Sortino ratio (zero MAR proxy): "+str(report.get("risk_metrics",{}).get("sortino_ratio_zero_mar","—")),
+      "Annualized downside deviation: "+str(report.get("risk_metrics",{}).get("downside_deviation_annualized_pct","—"))+"%",
       "",
       "PORTFOLIO TEAR SHEET",
       "Opening equity cents: "+str(report.get("tear_sheet",{}).get("opening_equity_cents","—")),
@@ -30,6 +33,17 @@ def render(report):
     lines += ["","QUARTERLY RETURNS"]
     for x in report.get("quarterly_returns",[]):
         lines.append(f'{x["period"]}: portfolio {x["portfolio_return_pct"]}% | benchmark {x["benchmark_return_pct"]}% | active {x["active_return_pct"]}%')
+    lines += ["","SECTOR EXPOSURE"]
+    for x in report.get("sector_exposure",{}).get("sectors",[]):
+        lines.append(f'{x["sector"]}: {x["weight_pct"]}% | market value cents {x["market_value_cents"]}')
+    for x in report.get("sector_exposure",{}).get("unclassified",[]):
+        lines.append(f'UNCLASSIFIED {x["symbol"]}: {x["market_value_cents"]} cents')
+    lines += ["","SECTOR CONTRIBUTION"]
+    for x in report.get("sector_contribution",[]):
+        lines.append(f'{x["sector"]}: {x["contribution_pct_baseline"]}% baseline-equity contribution')
+    lines += ["","FACTOR PROXY EXPOSURE"]
+    for x in report.get("factor_exposures",[]):
+        lines.append(f'{x["factor"]} ({x["symbol"]}): beta {x["beta"]} | correlation {x["correlation"]} | n={x["observations"]}')
     lines += ["","CONTRIBUTION ATTRIBUTION"]
     for x in report.get("contribution_attribution",[]):
         lines.append(f'{x["symbol"]}: {x["contribution_pct_equity"]}% of baseline equity')
