@@ -124,3 +124,12 @@ Authenticated historical OHLCV and research requests share a bounded, in-memory 
 Authenticated `GET /api/analytics?days=90` loads read-only Alpaca IEX daily bars for each current paper holding plus SPY, then aligns daily returns by date. The lookback is limited to 30–365 calendar days and current holdings to 10 symbols. It reports current-weight proxy daily volatility, benchmark beta, maximum drawdown, and holding-to-SPY correlations.
 
 **Important methodology limitation:** today's paper holding weights are held constant across the entire historical sample. This is not a reconstruction of historical positions, a true portfolio backtest, or a forecast. Returns use raw unadjusted close prices, ignore dividends/corporate actions and may be incomplete because IEX is a single-exchange feed. No risk number is represented as VaR. Sector exposure remains explicitly unclassified because no verified sector taxonomy is connected. No live orders are possible.
+
+## Portfolio intelligence and reporting
+
+- Sector exposure uses an explicit curated ticker map. Unknown symbols and ETFs are left unclassified; this is not a licensed or point-in-time GICS feed.
+- Every new paper order is recorded in a dedicated append-only-by-application transaction table within the same SQLite transaction as the simulated order and portfolio mark.
+- Realized and unrealized attribution uses transaction cost basis and refuses to report when older holdings cannot be reconciled to the ledger.
+- Five deterministic stress scenarios are included. They are illustrative parallel equity shocks, not forecasts, VaR, or validated factor models.
+- Authenticated `/api/intelligence` returns the complete JSON report; authenticated `/api/report.csv` exports portfolio, sector and stress summary rows.
+- Existing databases receive the transaction table additively. Existing positions are not fabricated into historical trades.
