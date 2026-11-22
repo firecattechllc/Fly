@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile Python
-        run: python -m compileall -q app.py auth.py market_data.py risk.py performance.py backup.py recovery_check.py
+        run: python -m compileall -q app.py auth.py market_data.py risk.py performance.py historical.py backup.py recovery_check.py
       - name: Test suite
         run: python -m unittest discover -s tests -v
       - name: JavaScript syntax
