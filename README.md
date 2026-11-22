@@ -150,3 +150,14 @@ The market replay now requires aligned SPY history in addition to every portfoli
 ## Benchmark terminal, rolling risk and tear sheet
 
 The Market Monitor's authenticated market-valued replay now exposes a normalized $1 portfolio-versus-SPY chart with 1M/3M/6M/1Y/all session-window controls. Chart points include date labels on hover. The replay also computes full-sample annualized sample volatility, annualized tracking error, information ratio, and rolling 20-session annualized volatility for both portfolio and SPY. Rolling values remain unavailable until a complete 20-session window exists. A compact tear sheet summarizes the reconciled period, TWR, active return, drawdown, opening/ending equity, cash, invested value, and position count. The PDF includes these risk and tear-sheet metrics. All volatility uses daily simple returns and a 252-session annualization convention; small samples are unstable, and the underlying IEX/UTC-trade-date limitations continue to apply.
+
+
+## Sector contribution, factor proxies and downside risk
+
+The reconciled market replay now adds sector exposure using the existing curated ticker taxonomy, with unknown symbols explicitly retained as Unclassified. Sector contribution aggregates the replay's prior-close-weighted security contribution estimates by sector. The PDF report includes both sector exposure and sector contribution.
+
+Risk metrics now include Sharpe (zero risk-free-rate assumption), Sortino (zero minimum acceptable return), and annualized downside deviation, alongside volatility, tracking error and information ratio. These are descriptive sample statistics, not forecasts; the zero-rate assumptions are explicit and not a substitute for a Treasury curve.
+
+Factor proxy exposure uses daily-return single-factor beta and correlation against QQQ (growth/Nasdaq-100 proxy), IWM (small-cap), IWD (value), MTUM (momentum), and USMV (minimum-volatility). Each is an ETF proxy, not a pure academic factor portfolio. At least three aligned daily observations are required. Factor coverage is supplemental: missing ETF history does not block the reconciled portfolio/ SPY report. Factor exposures and sector analytics are included in the dashboard and PDF.
+
+All outputs remain paper-only. Current positions, trade-date approximation, unadjusted IEX bars, dividend/corporate-action omissions, curated sector mapping, and limited sample history constrain interpretation. This is not GICS-certified attribution, multi-factor regression, VaR, or investment advice.
