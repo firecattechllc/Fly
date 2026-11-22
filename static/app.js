@@ -126,12 +126,39 @@ function updateUi(state,risk){
   setWeights(state,risk);
   setAudit(state.events);
 }
+function renderPaperHistory(h){
+  const root=$("paperChart");root.replaceChildren();
+  const points=h.points || [];
+  $("markCount").textContent=points.length+" OBSERVATION"+(points.length===1?"":"S");
+  if(!points.length){$("chartEmpty").hidden=false;return;}
+  $("markStart").textContent="BASELINE "+money(points[0].equity_cents);
+  $("markEnd").textContent="LATEST "+money(points[points.length-1].equity_cents);
+  $("markDelta").textContent="CHANGE "+money(h.equity_change_cents);
+  $("chartEmpty").hidden=points.length>1;
+  if(points.length<2)return;
+  const values=points.map(p=>p.equity_cents);
+  const min=Math.min(...values),max=Math.max(...values),range=Math.max(max-min,1);
+  const xy=points.map((p,i)=>[20+i*960/(points.length-1),138-(p.equity_cents-min)*116/range]);
+  const ns="http://www.w3.org/2000/svg";
+  function svg(tag,attributes){
+    const el=document.createElementNS(ns,tag);
+    for(const [k,v] of Object.entries(attributes))el.setAttribute(k,String(v));
+    return el;
+  }
+  for(const y of [22,80,138])root.append(svg("line",{x1:20,x2:980,y1:y,y2:y,stroke:"#25394d","stroke-width":1}));
+  const line=xy.map((p,i)=>(i?"L":"M")+p[0].toFixed(2)+","+p[1].toFixed(2)).join(" ");
+  const area=line+" L980,147 L20,147 Z";
+  root.append(svg("path",{d:area,fill:"#4fd4b5","fill-opacity":"0.08"}));
+  root.append(svg("path",{d:line,fill:"none",stroke:"#4fd4b5","stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"}));
+  for(const [x,y] of xy.slice(-25))root.append(svg("circle",{cx:x,cy:y,r:3,fill:"#4fd4b5"}));
+}
 async function refresh(){
-  const responses=await Promise.all([fetch("/api/state",{cache:"no-store"}),fetch("/api/risk",{cache:"no-store"})]);
-  if(responses.some(r=>!r.ok)) throw new Error("Portfolio and risk services are unavailable");
-  const [state,risk]=await Promise.all(responses.map(r=>r.json()));
+  const responses=await Promise.all([fetch("/api/state",{cache:"no-store"}),fetch("/api/risk",{cache:"no-store"}),fetch("/api/performance",{cache:"no-store"})]);
+  if(responses.some(r=>!r.ok)) throw new Error("Portfolio, risk, or observation history unavailable");
+  const [state,risk,history]=await Promise.all(responses.map(r=>r.json()));
   if(state.mode!=="SIMULATION ONLY" || state.broker_connected!==false) throw new Error("Unexpected environment: trading controls disabled");
   updateUi(state,risk);
+  renderPaperHistory(history);
 }
 async function doOrder(event){
   event.preventDefault();
