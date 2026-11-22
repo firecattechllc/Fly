@@ -396,6 +396,16 @@ function renderTearSheet(data){
  const last=data.points[data.points.length-1];
  add(rolling,"LATEST 20-SESSION ROLLING VOLATILITY",last.rolling_20d_volatility_pct===null?null:last.rolling_20d_volatility_pct+"%");
  add(rolling,"LATEST SPY ROLLING VOLATILITY",last.benchmark_rolling_20d_volatility_pct===null?null:last.benchmark_rolling_20d_volatility_pct+"%");
+ add(rolling,"SHARPE (ZERO RISK-FREE PROXY)",risk.sharpe_ratio_zero_rf);
+ add(rolling,"SORTINO (ZERO MAR PROXY)",risk.sortino_ratio_zero_mar);
+ add(rolling,"ANNUALIZED DOWNSIDE DEVIATION",risk.downside_deviation_annualized_pct===null?null:risk.downside_deviation_annualized_pct+"%");
+ const sectors=$("sectorRiskMetrics");sectors.replaceChildren();
+ for(const x of (data.sector_exposure?.sectors||[])){const row=node("div");row.append(node("b",x.sector),node("span",x.weight_pct+"% · "+money(x.market_value_cents)));sectors.append(row)}
+ for(const x of (data.sector_exposure?.unclassified||[])){const row=node("div");row.append(node("b","UNCLASSIFIED · "+x.symbol),node("span",money(x.market_value_cents)));sectors.append(row)}
+ for(const x of (data.sector_contribution||[])){const row=node("div");row.append(node("b",x.sector+" CONTRIBUTION"),node("span",x.contribution_pct_baseline+"% of baseline equity"));sectors.append(row)}
+ const factors=$("factorRiskMetrics");factors.replaceChildren();
+ for(const x of (data.factor_exposures||[])){const row=node("div");row.append(node("b",x.factor+" · "+x.symbol),node("span","β "+x.beta+" · ρ "+x.correlation+" · n="+x.observations));factors.append(row)}
+ if(!factors.children.length){const row=node("div");row.append(node("b","FACTOR DATA"),node("span","No factor ETF had at least three aligned observations."));factors.append(row)}
 }
 document.querySelectorAll("#performanceRanges [data-range]").forEach(button=>button.addEventListener("click",()=>{
  selectedPerformanceRange=button.dataset.range;
