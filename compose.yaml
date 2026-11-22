@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:8877:8877"
     volumes:
-      - ./data:/data
+      - fly-data:/data
     environment:
       FLY_DB: /data/paper.db
       FLY_HOST: 0.0.0.0
@@ -16,6 +16,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
     pids_limit: 128
     mem_limit: 256m
     tmpfs:
@@ -26,3 +27,5 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+volumes:
+  fly-data:
