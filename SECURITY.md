@@ -16,6 +16,7 @@ We will acknowledge reports as soon as reasonably possible, validate the issue, 
 
 - FLY is an experimental, paper-only portfolio simulator.
 - The current server is intended for localhost access only.
+- Local owner password authentication is available, but there is no TLS or multi-user identity system.
 - Alpaca integration is read-only market data; no brokerage order-submission endpoint exists.
 - Public brokerage connectivity and live trading are not implemented.
 - Portfolio marks are manually entered hypothetical prices.
