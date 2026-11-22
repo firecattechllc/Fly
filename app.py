@@ -266,12 +266,19 @@ class Handler(BaseHTTPRequestHandler):
                         if not symbols:
                             self.respond(200,{"status":"INSUFFICIENT_DATA","points":[],"message":"No holdings or transactions exist yet."}); return
                         symbols.add("SPY")
+                        factor_symbols={"QQQ","IWM","IWD","MTUM","USMV"}
                         if len(symbols)>11:
                             self.respond(400,{"error":"Market simulation supports at most 10 portfolio symbols plus SPY"}); return
                         histories={}
                         for symbol in sorted(symbols):
                             histories[symbol]=MARKET_CACHE.get(("bars",symbol,365,"iex"),300,
                                 lambda symbol=symbol:alpaca_bars(symbol,365,"iex"))
+                        for symbol in sorted(factor_symbols):
+                            try:
+                                histories[symbol]=MARKET_CACHE.get(("bars",symbol,365,"iex"),300,
+                                    lambda symbol=symbol:alpaca_bars(symbol,365,"iex"))
+                            except MarketDataError:
+                                pass  # Optional factor coverage must not block reconciled portfolio/benchmark reporting.
                         result=calculate_market_simulation(db,histories)
                         self.respond(200,result)
                     finally:
@@ -296,6 +303,12 @@ class Handler(BaseHTTPRequestHandler):
                             self.respond(400,{"error":"Report supports at most 10 portfolio symbols plus SPY"}); return
                         histories={s:MARKET_CACHE.get(("bars",s,365,"iex"),300,
                             lambda s=s:alpaca_bars(s,365,"iex")) for s in sorted(symbols)}
+                        for s in sorted({"QQQ","IWM","IWD","MTUM","USMV"}):
+                            try:
+                                histories[s]=MARKET_CACHE.get(("bars",s,365,"iex"),300,
+                                    lambda s=s:alpaca_bars(s,365,"iex"))
+                            except MarketDataError:
+                                pass  # Factor proxies are supplemental and may be unavailable.
                         report=calculate_market_simulation(db,histories)
                     finally:
                         db.close()
