@@ -18,6 +18,7 @@ from portfolio_intelligence import report as intelligence_report
 from performance import ensure_table as ensure_marks, observe as record_mark, history as mark_history
 from simulation import ensure_baseline, replay as replay_simulation
 from market_simulation import calculate as calculate_market_simulation
+from pdf_report import render as render_pdf_report
 import auth
 
 os.umask(0o077)  # Restrict SQLite and log files to the hosting user
@@ -264,8 +265,9 @@ class Handler(BaseHTTPRequestHandler):
                         symbols.update(r[0] for r in db.execute("SELECT DISTINCT symbol FROM transactions"))
                         if not symbols:
                             self.respond(200,{"status":"INSUFFICIENT_DATA","points":[],"message":"No holdings or transactions exist yet."}); return
-                        if len(symbols)>10:
-                            self.respond(400,{"error":"Market simulation supports at most 10 symbols"}); return
+                        symbols.add("SPY")
+                        if len(symbols)>11:
+                            self.respond(400,{"error":"Market simulation supports at most 10 portfolio symbols plus SPY"}); return
                         histories={}
                         for symbol in sorted(symbols):
                             histories[symbol]=MARKET_CACHE.get(("bars",symbol,365,"iex"),300,
@@ -276,6 +278,37 @@ class Handler(BaseHTTPRequestHandler):
                         db.close()
             except MarketDataError as exc:
                 self.respond(503,{"status":"MARKET_DATA_UNAVAILABLE","error":str(exc),"read_only":True})
+        elif path == "/api/report.pdf":
+            try:
+                with LOCK:
+                    db=connection()
+                    try:
+                        baseline=db.execute("SELECT positions_json FROM simulation_baseline WHERE id=1").fetchone()
+                        if baseline is None:
+                            self.respond(409,{"error":"Opening baseline unavailable"}); return
+                        import json as _json
+                        symbols={p["symbol"] for p in _json.loads(baseline["positions_json"])}
+                        symbols.update(r[0] for r in db.execute("SELECT DISTINCT symbol FROM transactions"))
+                        if not symbols:
+                            self.respond(409,{"error":"No portfolio activity exists for a performance report"}); return
+                        symbols.add("SPY")
+                        if len(symbols)>11:
+                            self.respond(400,{"error":"Report supports at most 10 portfolio symbols plus SPY"}); return
+                        histories={s:MARKET_CACHE.get(("bars",s,365,"iex"),300,
+                            lambda s=s:alpaca_bars(s,365,"iex")) for s in sorted(symbols)}
+                        report=calculate_market_simulation(db,histories)
+                    finally:
+                        db.close()
+                if report.get("status")!="DAILY_MARKET_REPLAY":
+                    self.respond(409,{"error":"A reconciled market simulation is required before PDF export","detail":report}); return
+                report["generated_utc"]=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+                raw=render_pdf_report(report)
+                self.send_response(200); self.send_header("Content-Type","application/pdf")
+                self.send_header("Content-Disposition","attachment; filename=fly-performance-report.pdf")
+                self.send_header("Content-Length",str(len(raw))); self.send_header("Cache-Control","no-store")
+                self.send_header("X-Content-Type-Options","nosniff"); self.end_headers(); self.wfile.write(raw)
+            except MarketDataError as exc:
+                self.respond(503,{"error":"Market data unavailable","detail":str(exc)})
         elif path == "/api/intelligence":
             with LOCK:
                 db = connection()
